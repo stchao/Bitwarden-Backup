@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Bitwarden_Backup.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -18,7 +19,9 @@ namespace Bitwarden_Backup.Extensions
                 .CreateLogger();
 
             services.AddSingleton<IConfiguration>(configuration)
-                .AddLogging(configure => configure.AddSerilog());
+                .AddLogging(configure => configure.AddSerilog())
+                .AddScoped<IBitwardenService, BitwardenService>()
+                .AddHttpClient();
 
             return services;
         }

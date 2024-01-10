@@ -1,4 +1,5 @@
 ﻿using Bitwarden_Backup.Extensions;
+using Bitwarden_Backup.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bitwarden_Backup
