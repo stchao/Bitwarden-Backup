@@ -1,5 +1,4 @@
-﻿
-namespace Bitwarden_Backup.Models
+﻿namespace Bitwarden_Backup.Models
 {
     internal class Credential
     {
@@ -17,9 +16,13 @@ namespace Bitwarden_Backup.Models
 
         public bool HasValueForUrl() => !string.IsNullOrEmpty(Url);
 
-        public bool HasValuesForAPI() => !string.IsNullOrEmpty(ClientId) && !string.IsNullOrEmpty(ClientSecret) && !string.IsNullOrEmpty(Password);
+        public bool HasValuesForAPI() =>
+            !string.IsNullOrEmpty(ClientId)
+            && !string.IsNullOrEmpty(ClientSecret)
+            && !string.IsNullOrEmpty(Password);
 
-        public bool HasValuesForEmailPW() => !string.IsNullOrEmpty(Email) && !string.IsNullOrEmpty(Password);
+        public bool HasValuesForEmailPW() =>
+            !string.IsNullOrEmpty(Email) && !string.IsNullOrEmpty(Password);
 
         public bool HasValueForOTP() => OneTimePasscode > -1 && HasValuesForEmailPW();
     }

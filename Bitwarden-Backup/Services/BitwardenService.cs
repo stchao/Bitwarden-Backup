@@ -1,12 +1,14 @@
-﻿using Bitwarden_Backup.Extensions;
+﻿using System.Diagnostics;
+using System.Text;
+using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Text;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class BitwardenService(ILogger<BitwardenService> logger) : IBitwardenService, IDisposable
+    internal class BitwardenService(ILogger<BitwardenService> logger)
+        : IBitwardenService,
+            IDisposable
     {
         private string sessionKey = string.Empty;
 
@@ -22,7 +24,10 @@ namespace Bitwarden_Backup.Services
             }
 
             var authenticationMethod = (otp > -1) ? $"--method 0 --code {otp}" : "";
-            var (isLoginSuccessful, loginOutput) = RunCommand($"login {userName} {password} --raw {authenticationMethod}", true);
+            var (isLoginSuccessful, loginOutput) = RunCommand(
+                $"login {userName} {password} --raw {authenticationMethod}",
+                true
+            );
 
             if (isLoginSuccessful)
             {
@@ -58,14 +63,20 @@ namespace Bitwarden_Backup.Services
             if (isUnlockSuccessful)
             {
                 sessionKey = unlockOutput;
-            }            
+            }
 
             return isUnlockSuccessful;
         }
 
-        public bool LogOut() => RunCommand("logout").isSuccessful;        
+        public bool LogOut() => RunCommand("logout").isSuccessful;
 
-        public bool ExportVault(string fullFilePath, ExportFormat exportFormat = ExportFormat.json, string password = "")
+        public bool ExportVault(
+            string fullFilePath,
+            ExportFormat exportFormat = ExportFormat.json,
+            string password = "",
+            bool appendDate = false,
+            string baseFileName = "fileName"
+        )
         {
             if (string.IsNullOrWhiteSpace(sessionKey))
             {
@@ -73,13 +84,20 @@ namespace Bitwarden_Backup.Services
                 return false;
             }
 
-            var availableFullFilePath = FilePathHelper.GetAvailableFullFilePath(fullFilePath);
+            var availableFullFilePath = FilePathHelper.GetAvailableFullFilePath(
+                fullFilePath,
+                appendDate,
+                baseFileName
+            );
 
             var exportCommand = new StringBuilder();
             exportCommand.Append($"export --format {exportFormat} ");
             exportCommand.Append($" --output {availableFullFilePath} ");
 
-            if (exportFormat.Equals(ExportFormat.encrypted_json) && !string.IsNullOrWhiteSpace(password))
+            if (
+                exportFormat.Equals(ExportFormat.encrypted_json)
+                && !string.IsNullOrWhiteSpace(password)
+            )
             {
                 exportCommand.Append($" --password {password} ");
             }
@@ -89,7 +107,10 @@ namespace Bitwarden_Backup.Services
             return isExportSuccessful;
         }
 
-        public (bool isSuccessful, string output) RunCommand(string command, bool isCommandSensitive = false)
+        public (bool isSuccessful, string output) RunCommand(
+            string command,
+            bool isCommandSensitive = false
+        )
         {
             var output = new StringBuilder();
             var error = new StringBuilder();
@@ -106,17 +127,21 @@ namespace Bitwarden_Backup.Services
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     RedirectStandardInput = false
-                },                
+                },
             };
 
             var tempCommand = isCommandSensitive ? "[redacted]" : command;
 
             process.ErrorDataReceived += (sender, args) =>
-            {                
+            {
                 if (!string.IsNullOrWhiteSpace(args.Data))
                 {
                     error.AppendLine(args.Data);
-                    logger.LogError("Error when running the command '{tempCommand}' - {errorData}", tempCommand, args.Data);
+                    logger.LogError(
+                        "Error when running the command '{tempCommand}' - {errorData}",
+                        tempCommand,
+                        args.Data
+                    );
                 }
             };
 
@@ -125,7 +150,11 @@ namespace Bitwarden_Backup.Services
                 if (!string.IsNullOrWhiteSpace(args.Data))
                 {
                     output.AppendLine(args.Data);
-                    logger.LogInformation("Output when running the command '{tempCommand}' - {outputData}", tempCommand, args.Data);
+                    logger.LogInformation(
+                        "Output when running the command '{tempCommand}' - {outputData}",
+                        tempCommand,
+                        args.Data
+                    );
                 }
             };
 
@@ -136,7 +165,10 @@ namespace Bitwarden_Backup.Services
 
             var errorResponse = error.ToString();
 
-            if (!string.IsNullOrWhiteSpace(errorResponse) && !errorResponse.Contains("You are already logged"))
+            if (
+                !string.IsNullOrWhiteSpace(errorResponse)
+                && !errorResponse.Contains("You are already logged")
+            )
             {
                 return (false, errorResponse);
             }
@@ -154,23 +186,24 @@ namespace Bitwarden_Backup.Services
             if (Environment.OSVersion.Platform.ToString().StartsWith("Win"))
             {
                 bitwardenFileName = "bw.exe";
-                currentAppPath = Path.GetDirectoryName(Environment.ProcessPath) ?? Directory.GetCurrentDirectory();
+                currentAppPath =
+                    Path.GetDirectoryName(Environment.ProcessPath)
+                    ?? Directory.GetCurrentDirectory();
             }
 
             var filePath = Path.Combine(currentAppPath, bitwardenFileName);
 
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException($"The file '{bitwardenFileName}' is not in the app directory. " +
-                    $"Please download the latest version of Bitwarden CLI from https://bitwarden.com/help/cli/ and move the .exe file into the app directory.");
+                throw new FileNotFoundException(
+                    $"The file '{bitwardenFileName}' is not in the app directory. "
+                        + $"Please download the latest version of Bitwarden CLI from https://bitwarden.com/help/cli/ and move the .exe file into the app directory."
+                );
             }
 
             return filePath;
         }
     }
 
-    internal interface IBitwardenService
-    {
-
-    }
+    internal interface IBitwardenService { }
 }

@@ -9,7 +9,7 @@ namespace Bitwarden_Backup.Extensions
     {
         internal static IServiceCollection ConfigureLogAndServices(this IServiceCollection services)
         {
-            var configuration = new ConfigurationBuilder()             
+            var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .Build();
@@ -18,7 +18,8 @@ namespace Bitwarden_Backup.Extensions
                 .ReadFrom.Configuration(configuration)
                 .CreateLogger();
 
-            services.AddSingleton<IConfiguration>(configuration)
+            services
+                .AddSingleton<IConfiguration>(configuration)
                 .AddLogging(configure => configure.AddSerilog())
                 .AddScoped<IBitwardenService, BitwardenService>()
                 .AddHttpClient();

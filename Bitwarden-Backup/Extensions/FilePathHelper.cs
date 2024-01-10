@@ -2,9 +2,13 @@
 {
     internal static class FilePathHelper
     {
-        internal static string GetAvailableFullFilePath(string fullFilePath, string baseFileName = "filename", bool appendDate = false) 
+        internal static string GetAvailableFullFilePath(
+            string fullFilePath,
+            bool appendDate,
+            string baseFileName
+        )
         {
-            var tempFileName = Path.GetFileName(fullFilePath);            
+            var tempFileName = Path.GetFileName(fullFilePath);
 
             if (!string.IsNullOrWhiteSpace(tempFileName) && !File.Exists(fullFilePath))
             {
@@ -12,12 +16,18 @@
             }
 
             var filePath = Path.GetFullPath(fullFilePath);
-            return GetNextAvailableFullFilePath(filePath, baseFileName, appendDate);
+            return GetNextAvailableFullFilePath(filePath, appendDate, baseFileName);
         }
 
-        internal static string GetNextAvailableFullFilePath(string filePath, string baseFileName, bool appendDate)
+        internal static string GetNextAvailableFullFilePath(
+            string filePath,
+            bool appendDate,
+            string baseFileName
+        )
         {
-            var tempFileName = appendDate ? $"{baseFileName}_{DateTime.Now:yyyyMMdd}" : baseFileName;
+            var tempFileName = appendDate
+                ? $"{baseFileName}_{DateTime.Now:yyyyMMdd}"
+                : baseFileName;
             var tempFullFilePath = Path.Combine(filePath, tempFileName);
             var counter = 0;
 
