@@ -205,5 +205,25 @@ namespace Bitwarden_Backup.Services
         }
     }
 
-    internal interface IBitwardenService { }
+    internal interface IBitwardenService
+    {
+        public bool LogIn(string password, string username, int otp = -1, string url = "");
+
+        public bool LogIn(string password, string clientId, string clientSecret, string url = "");
+
+        public bool LogOut();
+
+        public bool ExportVault(
+            string fullFilePath,
+            ExportFormat exportFormat = ExportFormat.json,
+            string password = "",
+            bool appendDate = false,
+            string baseFileName = "fileName"
+        );
+
+        public (bool isSuccessful, string output) RunCommand(
+            string command,
+            bool isCommandSensitive = false
+        );
+    }
 }

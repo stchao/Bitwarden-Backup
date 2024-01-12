@@ -5,4 +5,11 @@
         json,
         encrypted_json
     }
+
+    internal enum CredentialType
+    {
+        None = 0,
+        Api,
+        EmailPw
+    }
 }
