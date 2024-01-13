@@ -2,6 +2,7 @@
 using System.Text;
 using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Bitwarden_Backup.Services
@@ -70,24 +71,24 @@ namespace Bitwarden_Backup.Services
 
         public bool LogOut() => RunCommand("logout").isSuccessful;
 
-        public bool ExportVault(
-            string fullFilePath,
+        public (bool isSuccessful, string fullFilePath) ExportVault(
+            string directoryPath,
+            string fileName,
             ExportFormat exportFormat = ExportFormat.json,
             string password = "",
-            bool appendDate = false,
-            string baseFileName = "fileName"
+            string dateFormat = ""
         )
         {
             if (string.IsNullOrWhiteSpace(sessionKey))
             {
                 logger.LogError("Session key is null or empty.");
-                return false;
+                return (false, string.Empty);
             }
 
             var availableFullFilePath = FilePathHelper.GetAvailableFullFilePath(
-                fullFilePath,
-                appendDate,
-                baseFileName
+                directoryPath,
+                fileName,
+                dateFormat
             );
 
             var exportCommand = new StringBuilder();
@@ -104,7 +105,7 @@ namespace Bitwarden_Backup.Services
 
             var (isExportSuccessful, _) = RunCommand(exportCommand.ToString(), true);
 
-            return isExportSuccessful;
+            return (isExportSuccessful, isExportSuccessful ? availableFullFilePath : string.Empty);
         }
 
         public (bool isSuccessful, string output) RunCommand(
@@ -213,12 +214,12 @@ namespace Bitwarden_Backup.Services
 
         public bool LogOut();
 
-        public bool ExportVault(
-            string fullFilePath,
+        public (bool isSuccessful, string fullFilePath) ExportVault(
+            string directoryPath,
+            string fileName,
             ExportFormat exportFormat = ExportFormat.json,
             string password = "",
-            bool appendDate = false,
-            string baseFileName = "fileName"
+            string dateFormat = ""
         );
 
         public (bool isSuccessful, string output) RunCommand(

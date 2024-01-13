@@ -3,37 +3,40 @@
     internal static class FilePathHelper
     {
         internal static string GetAvailableFullFilePath(
-            string fullFilePath,
-            bool appendDate,
-            string baseFileName
+            string directoryPath,
+            string fileName,
+            string dateFormat = ""
         )
         {
-            var tempFileName = Path.GetFileName(fullFilePath);
+            var fileNameSuffix = string.IsNullOrWhiteSpace(dateFormat)
+                ? string.Empty
+                : $"_{DateTime.Now.ToString(dateFormat)}";
+            var tempFileName = $"{fileName}{fileNameSuffix}";
+            var tempFullPath = Path.Combine(directoryPath, tempFileName);
 
-            if (!string.IsNullOrWhiteSpace(tempFileName) && !File.Exists(fullFilePath))
+            if (!string.IsNullOrWhiteSpace(fileName) && !File.Exists(tempFullPath))
             {
-                return fullFilePath;
+                return tempFullPath;
             }
 
-            var filePath = Path.GetFullPath(fullFilePath);
-            return GetNextAvailableFullFilePath(filePath, appendDate, baseFileName);
+            return GetNextAvailableFullFilePath(directoryPath, fileName, dateFormat);
         }
 
         internal static string GetNextAvailableFullFilePath(
-            string filePath,
-            bool appendDate,
-            string baseFileName
+            string directoryPath,
+            string baseFileName,
+            string dateFormat = ""
         )
         {
-            var tempFileName = appendDate
-                ? $"{baseFileName}_{DateTime.Now:yyyyMMdd}"
+            var tempFileName = string.IsNullOrWhiteSpace(dateFormat)
+                ? $"{baseFileName}_{DateTime.Now.ToString(dateFormat)}"
                 : baseFileName;
-            var tempFullFilePath = Path.Combine(filePath, tempFileName);
+            var tempFullFilePath = Path.Combine(directoryPath, tempFileName);
             var counter = 0;
 
             while (File.Exists(tempFullFilePath))
             {
-                tempFullFilePath = Path.Combine(filePath, $"{tempFileName}_{counter}");
+                tempFullFilePath = Path.Combine(directoryPath, $"{tempFileName}_{counter}");
                 counter++;
 
                 if (counter % 10 == 0)
