@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
@@ -7,11 +8,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class BitwardenService(ILogger<BitwardenService> logger)
+    internal class BitwardenService(ILogger<BitwardenService> logger, IConfiguration configuration)
         : IBitwardenService,
             IDisposable
     {
         private string sessionKey = string.Empty;
+        private string bitwardenExecutablePath =
+            configuration.GetValue<string>("BitwardenExecutablePath") ?? string.Empty;
+        private string bitwardenExecutableName = "bw";
 
         public bool LogIn(string password, string userName, int otp = -1, string url = "")
         {
@@ -179,25 +183,32 @@ namespace Bitwarden_Backup.Services
 
         public void Dispose() => LogOut();
 
-        private static string GetBitwardenPath()
+        private string GetBitwardenPath()
         {
-            var bitwardenFileName = "bw";
-            var currentAppPath = Path.GetDirectoryName(Environment.ProcessPath) ?? ".";
+            var filePath = Path.Combine(bitwardenExecutablePath, bitwardenExecutableName);
+
+            if (File.Exists(filePath))
+            {
+                return filePath;
+            }
+
+            bitwardenExecutableName = "bw";
+            bitwardenExecutablePath = Path.GetDirectoryName(Environment.ProcessPath) ?? ".";
 
             if (Environment.OSVersion.Platform.ToString().StartsWith("Win"))
             {
-                bitwardenFileName = "bw.exe";
-                currentAppPath =
+                bitwardenExecutableName = "bw.exe";
+                bitwardenExecutablePath =
                     Path.GetDirectoryName(Environment.ProcessPath)
                     ?? Directory.GetCurrentDirectory();
             }
 
-            var filePath = Path.Combine(currentAppPath, bitwardenFileName);
+            filePath = Path.Combine(bitwardenExecutablePath, bitwardenExecutableName);
 
             if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException(
-                    $"The file '{bitwardenFileName}' is not in the app directory. "
+                    $"The file '{bitwardenExecutableName}' is not in the app directory. "
                         + $"Please download the latest version of Bitwarden CLI from https://bitwarden.com/help/cli/ and move the .exe file into the app directory."
                 );
             }
