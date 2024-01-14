@@ -18,7 +18,7 @@ namespace Bitwarden_Backup.Services
     {
         private Credential credential =
             configuration.GetSection(Credential.Key).Get<Credential>() ?? new Credential();
-        private readonly bool isInteractive = configuration.GetValue<bool>("isInteractive");
+        private readonly bool isInteractive = configuration.GetValue<bool>("IsInteractive");
 
         // Prompt constants
         private const string SkipPrompt =
@@ -102,7 +102,7 @@ namespace Bitwarden_Backup.Services
             return credential;
         }
 
-        public static T? GetValueUsingConsole<T>(
+        public T? GetValueUsingConsole<T>(
             string prompt,
             T? defaultValue = default,
             HashSet<string>? validValues = default
@@ -160,7 +160,7 @@ namespace Bitwarden_Backup.Services
             return result;
         }
 
-        private static string GetStringValueUsingConsole(
+        private string GetStringValueUsingConsole(
             string currentValue,
             string prompt,
             string defaultValue = "",
@@ -184,22 +184,18 @@ namespace Bitwarden_Backup.Services
                     ["1", "auth", "2", "yubi", "3", "email"]
                 ) ?? string.Empty;
 
-            switch (twoFactorChoice?.Trim().ToLower())
+            return (twoFactorChoice?.Trim().ToLower()) switch
             {
-                case "1":
-                case "auth":
-                    return GetValueUsingConsole(TwoFactorAuthenticatorPrompt, string.Empty)
-                        ?? string.Empty;
-                case "2":
-                case "yubi":
-                    return GetValueUsingConsole(TwoFactorYubiKeyPrompt, string.Empty)
-                        ?? string.Empty;
-                case "3":
-                case "email":
-                    return "email";
-                default:
-                    return string.Empty;
-            }
+                "1"
+                or "auth"
+                    => GetValueUsingConsole(TwoFactorAuthenticatorPrompt, string.Empty)
+                        ?? string.Empty,
+                "2"
+                or "yubi"
+                    => GetValueUsingConsole(TwoFactorYubiKeyPrompt, string.Empty) ?? string.Empty,
+                "3" or "email" => "email",
+                _ => throw new NotSupportedException(),
+            };
         }
     }
 
@@ -211,6 +207,7 @@ namespace Bitwarden_Backup.Services
             string prompt,
             T? defaultValue = default,
             HashSet<string>? validValues = default
-        );
+        )
+            where T : IConvertible;
     }
 }

@@ -17,7 +17,7 @@ namespace Bitwarden_Backup.Services
             configuration.GetValue<string>("BitwardenExecutablePath") ?? string.Empty;
         private string bitwardenExecutableName = "bw";
 
-        public bool LogIn(string password, string userName, int otp = -1, string url = "")
+        public bool LogIn(string password, string email, int otp = -1, string url = "")
         {
             // Sanity logout!
             LogOut();
@@ -30,7 +30,7 @@ namespace Bitwarden_Backup.Services
 
             var authenticationMethod = (otp > -1) ? $"--method 0 --code {otp}" : "";
             var (isLoginSuccessful, loginOutput) = RunCommand(
-                $"login {userName} {password} --raw {authenticationMethod}",
+                $"login {email} {password} --raw {authenticationMethod}",
                 true
             );
 
@@ -78,9 +78,9 @@ namespace Bitwarden_Backup.Services
         public (bool isSuccessful, string fullFilePath) ExportVault(
             string directoryPath,
             string fileName,
-            ExportFormat exportFormat = ExportFormat.json,
-            string password = "",
-            string dateFormat = ""
+            string customExportPassword = "",
+            string dateFormat = "",
+            ExportFormat exportFormat = ExportFormat.json
         )
         {
             if (string.IsNullOrWhiteSpace(sessionKey))
@@ -101,10 +101,10 @@ namespace Bitwarden_Backup.Services
 
             if (
                 exportFormat.Equals(ExportFormat.encrypted_json)
-                && !string.IsNullOrWhiteSpace(password)
+                && !string.IsNullOrWhiteSpace(customExportPassword)
             )
             {
-                exportCommand.Append($" --password {password} ");
+                exportCommand.Append($" --password {customExportPassword} ");
             }
 
             var (isExportSuccessful, _) = RunCommand(exportCommand.ToString(), true);
@@ -219,7 +219,7 @@ namespace Bitwarden_Backup.Services
 
     internal interface IBitwardenService
     {
-        public bool LogIn(string password, string username, int otp = -1, string url = "");
+        public bool LogIn(string password, string email, int otp = -1, string url = "");
 
         public bool LogIn(string password, string clientId, string clientSecret, string url = "");
 
@@ -228,9 +228,9 @@ namespace Bitwarden_Backup.Services
         public (bool isSuccessful, string fullFilePath) ExportVault(
             string directoryPath,
             string fileName,
-            ExportFormat exportFormat = ExportFormat.json,
-            string password = "",
-            string dateFormat = ""
+            string customExportPassword = "",
+            string dateFormat = "",
+            ExportFormat exportFormat = ExportFormat.json
         );
 
         public (bool isSuccessful, string output) RunCommand(
