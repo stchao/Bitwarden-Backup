@@ -16,7 +16,7 @@ namespace Bitwarden_Backup.Services
         IConfiguration configuration
     ) : ICredentialService
     {
-        private Credential credential =
+        private readonly Credential credential =
             configuration.GetSection(Credential.Key).Get<Credential>() ?? new Credential();
         private readonly bool isInteractive = configuration.GetValue<bool>("IsInteractive");
 
@@ -24,7 +24,7 @@ namespace Bitwarden_Backup.Services
         private const string SkipPrompt =
             "Type 'skip' or press enter to skip and use the default value";
         private const string LoginChoicePrompt =
-            "How would you like to log in? Enter 1 or 'API' for API, or 2 or 'EMAIL' for Email and Password.";
+            "How would you like to log in? Enter 1 or 'API' to use api, or enter 2 or 'EMAIL' to use email and password.";
         private const string BitwardenServerPrompt = "Please enter the Bitwarden server url.";
         private const string ClientIdPrompt = "Please enter your Client ID.";
         private const string ClientSecretPrompt = "Please enter your Client Secret.";
@@ -54,6 +54,8 @@ namespace Bitwarden_Backup.Services
 
             var loginChoice = GetValueUsingConsole(
                 LoginChoicePrompt,
+                "Choice: ",
+                false,
                 "2",
                 ["1", "api", "2", "email"]
             );
@@ -61,6 +63,8 @@ namespace Bitwarden_Backup.Services
             credential.Url = GetStringValueUsingConsole(
                 credential.Url,
                 BitwardenServerPrompt,
+                "Url: ",
+                false,
                 "https://vault.bitwarden.com"
             );
 
@@ -71,30 +75,44 @@ namespace Bitwarden_Backup.Services
                 case "api":
                     credential.ClientId = GetStringValueUsingConsole(
                         credential.ClientId,
-                        ClientIdPrompt
+                        ClientIdPrompt,
+                        "Client Id: "
                     );
 
                     credential.ClientSecret = GetStringValueUsingConsole(
                         credential.ClientSecret,
-                        ClientSecretPrompt
+                        ClientSecretPrompt,
+                        "Client Secret: "
                     );
 
                     credential.Password = GetStringValueUsingConsole(
                         credential.Password,
-                        ClientPasswordPrompt
+                        ClientPasswordPrompt,
+                        "Password: ",
+                        true
                     );
                     break;
                 // Email and Password
                 case "2":
                 case "email":
-                    credential.Email = GetStringValueUsingConsole(credential.Email, EmailPrompt);
+                    credential.Email = GetStringValueUsingConsole(
+                        credential.Email,
+                        EmailPrompt,
+                        "Email: "
+                    );
 
                     credential.Password = GetStringValueUsingConsole(
                         credential.Password,
-                        PasswordPrompt
+                        PasswordPrompt,
+                        "Password: ",
+                        true
                     );
 
-                    credential.TwoFactorCode = GetTwoFactorCodeUsingConsole();
+                    var (twoFactorMethod, twoFactorCode) = GetTwoFactorCodeUsingConsole(
+                        credential.TwoFactorMethod
+                    );
+                    credential.TwoFactorMethod = twoFactorMethod;
+                    credential.TwoFactorCode = twoFactorCode;
                     break;
             }
 
@@ -104,6 +122,8 @@ namespace Bitwarden_Backup.Services
 
         public T? GetValueUsingConsole<T>(
             string prompt,
+            string outputLineLabel = "",
+            bool hideUserInput = false,
             T? defaultValue = default,
             HashSet<string>? validValues = default
         )
@@ -118,7 +138,17 @@ namespace Bitwarden_Backup.Services
 
             while (string.IsNullOrWhiteSpace(userResponse))
             {
-                userResponse = Console.ReadLine();
+                if (!string.IsNullOrEmpty(outputLineLabel))
+                {
+                    Console.Write(outputLineLabel);
+                }
+
+                userResponse = hideUserInput
+                    ? GetUserResponseWithoutDisplaying()
+                    : Console.ReadLine();
+
+                // Add new line for spacing
+                Console.WriteLine();
 
                 try
                 {
@@ -137,7 +167,7 @@ namespace Bitwarden_Backup.Services
 
                     if (
                         validValues?.Count > 0
-                        && validValues.Contains(userResponse.Trim().ToLower())
+                        && !validValues.Contains(userResponse.Trim().ToLower())
                     )
                     {
                         throw new Exception("Invalid user response.");
@@ -149,9 +179,8 @@ namespace Bitwarden_Backup.Services
                 {
                     // Failed to convert. Reprompt user.
                     Console.WriteLine(
-                        $"Invalid response. The response must be of type {typeof(T).Name}."
+                        $"Invalid response. The response must be of type {typeof(T).Name}.\n"
                     );
-                    Console.WriteLine(tempSkipPrompt);
                     result = defaultValue;
                     userResponse = string.Empty;
                 }
@@ -163,6 +192,8 @@ namespace Bitwarden_Backup.Services
         private string GetStringValueUsingConsole(
             string currentValue,
             string prompt,
+            string outputLineLabel = "",
+            bool hideUserInput = false,
             string defaultValue = "",
             HashSet<string>? validValues = default
         )
@@ -172,30 +203,76 @@ namespace Bitwarden_Backup.Services
                 return currentValue;
             }
 
-            return GetValueUsingConsole(prompt, defaultValue, validValues) ?? defaultValue;
+            return GetValueUsingConsole(
+                    prompt,
+                    outputLineLabel,
+                    hideUserInput,
+                    defaultValue,
+                    validValues
+                ) ?? defaultValue;
         }
 
-        private string GetTwoFactorCodeUsingConsole()
+        private (
+            TwoFactorMethod twoFactorMethod,
+            string twoFactorCode
+        ) GetTwoFactorCodeUsingConsole(TwoFactorMethod twoFactorMethod)
         {
             var twoFactorChoice =
-                GetValueUsingConsole(
-                    TwoFactorPrompt,
-                    string.Empty,
-                    ["1", "auth", "2", "yubi", "3", "email"]
-                ) ?? string.Empty;
+                twoFactorMethod == TwoFactorMethod.None
+                    ? GetValueUsingConsole(
+                        TwoFactorPrompt,
+                        "Two Factor Choice: ",
+                        false,
+                        string.Empty,
+                        ["1", "auth", "2", "yubi", "3", "email"]
+                    ) ?? string.Empty
+                    : twoFactorMethod.ToString();
 
             return (twoFactorChoice?.Trim().ToLower()) switch
             {
                 "1"
                 or "auth"
-                    => GetValueUsingConsole(TwoFactorAuthenticatorPrompt, string.Empty)
-                        ?? string.Empty,
+                or "authenticator"
+                    => (
+                        TwoFactorMethod.Authenticator,
+                        GetValueUsingConsole<string>(
+                            TwoFactorAuthenticatorPrompt,
+                            "Authenticator Code: "
+                        ) ?? string.Empty
+                    ),
                 "2"
                 or "yubi"
-                    => GetValueUsingConsole(TwoFactorYubiKeyPrompt, string.Empty) ?? string.Empty,
-                "3" or "email" => "email",
+                or "yubikey"
+                    => (
+                        TwoFactorMethod.YubiKey,
+                        GetValueUsingConsole<string>(TwoFactorYubiKeyPrompt, "Yubi Key Code: ")
+                            ?? string.Empty
+                    ),
+                "3" or "email" => (TwoFactorMethod.Email, string.Empty),
                 _ => throw new NotSupportedException(),
             };
+        }
+
+        private static string GetUserResponseWithoutDisplaying()
+        {
+            var result = new StringBuilder();
+
+            while (true)
+            {
+                var key = Console.ReadKey(true);
+
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    break;
+                }
+
+                result.Append(key.KeyChar);
+            }
+
+            // Add new line for spacing
+            Console.WriteLine();
+
+            return result.ToString();
         }
     }
 
@@ -205,6 +282,8 @@ namespace Bitwarden_Backup.Services
 
         public T? GetValueUsingConsole<T>(
             string prompt,
+            string outputLineLabel = "",
+            bool hideUserInput = false,
             T? defaultValue = default,
             HashSet<string>? validValues = default
         )

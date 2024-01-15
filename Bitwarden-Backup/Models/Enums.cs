@@ -12,4 +12,12 @@
         Api,
         EmailPw
     }
+
+    internal enum TwoFactorMethod
+    {
+        None = -1,
+        Authenticator = 0,
+        Email = 1,
+        YubiKey = 3
+    }
 }
