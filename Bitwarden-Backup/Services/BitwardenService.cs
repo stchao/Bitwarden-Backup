@@ -17,7 +17,13 @@ namespace Bitwarden_Backup.Services
             configuration.GetValue<string>("BitwardenExecutablePath") ?? string.Empty;
         private string bitwardenExecutableName = "bw";
 
-        public bool LogIn(string password, string email, int otp = -1, string url = "")
+        public bool LogIn(
+            string password,
+            string email,
+            TwoFactorMethod twoFactorMethod = TwoFactorMethod.None,
+            string twoFactorCode = "",
+            string url = ""
+        )
         {
             // Sanity logout!
             LogOut();
@@ -28,7 +34,15 @@ namespace Bitwarden_Backup.Services
                 RunCommand($"config server {url}");
             }
 
-            var authenticationMethod = (otp > -1) ? $"--method 0 --code {otp}" : "";
+            var authenticationMethod = twoFactorMethod switch
+            {
+                TwoFactorMethod.Authenticator
+                or TwoFactorMethod.YubiKey
+                    => $"--method {(int)twoFactorMethod} --code {twoFactorCode}",
+                TwoFactorMethod.Email => throw new NotImplementedException(),
+                _ => string.Empty,
+            };
+
             var (isLoginSuccessful, loginOutput) = RunCommand(
                 $"login {email} {password} --raw {authenticationMethod}",
                 true
@@ -143,7 +157,7 @@ namespace Bitwarden_Backup.Services
                 {
                     error.AppendLine(args.Data);
                     logger.LogError(
-                        "Error when running the command '{tempCommand}' - {errorData}",
+                        "Error when running the command '{tempCommand}': {errorData}",
                         tempCommand,
                         args.Data
                     );
@@ -156,7 +170,7 @@ namespace Bitwarden_Backup.Services
                 {
                     output.AppendLine(args.Data);
                     logger.LogInformation(
-                        "Output when running the command '{tempCommand}' - {outputData}",
+                        "Output when running the command '{tempCommand}': {outputData}",
                         tempCommand,
                         args.Data
                     );
@@ -219,7 +233,13 @@ namespace Bitwarden_Backup.Services
 
     internal interface IBitwardenService
     {
-        public bool LogIn(string password, string email, int otp = -1, string url = "");
+        public bool LogIn(
+            string password,
+            string email,
+            TwoFactorMethod twoFactorMethod = TwoFactorMethod.None,
+            string twoFactorCode = "",
+            string url = ""
+        );
 
         public bool LogIn(string password, string clientId, string clientSecret, string url = "");
 
