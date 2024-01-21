@@ -18,39 +18,10 @@ namespace Bitwarden_Backup.Services
         private readonly BitwardenCredentials bitwardenCredentials =
             configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
             ?? new BitwardenCredentials();
-        private readonly BitwardenConfiguration bitwardenConfiguration =
-            configuration.GetSection(BitwardenConfiguration.Key).Get<BitwardenConfiguration>()
-            ?? new BitwardenConfiguration();
 
-        // Prompts
-        private const string LoginMethodPrompt = "How would you like to log in? ";
-        private const string TwoFactorMethodPrompt = "How would you like to log in? ";
-        private const string ClientIdPrompt = "? Client Id: ";
-        private const string ClientSecretPrompt = "? Client Secret: ";
-        private const string MasterPasswordPrompt = "? Master Password: [input is hidden] ";
-        private const string EmailPrompt = "? Email address: ";
-        private const string TwoFactorCodePrompt = "? Two-step login code: ";
-        private const string MoreChoicesText = "[grey](Move up and down to reveal more choices)[/]";
-
-        // Error Messages
-        private const string NoCredentialsErrorMessage =
-            "Interactive log in is disabled and there are no credential(s) in appsettings.json.";
-        private const string InvalidLogInMethodErrorMessage =
-            "The log in methods currently supported are using api key or using email and password credentials.";
-        private const string InvalidTwoFactorMethodErrorMessage =
-            "The two factor methods currently supported are using authenticator app, YubiKey OTP security key, or email.";
-        private const string ClientIdValidationResultErrorMessage =
-            "[red]Client Id cannot be empty or null.[/]";
-        private const string ClientSecretValidationResultErrorMessage =
-            "[red]Client Secret cannot be empty or null.[/]";
-        private const string MasterPasswordValidationResultErrorMessage =
-            "[red]Client Id cannot be empty or null.[/]";
-        private const string EmailValidationResultErrorMessage =
-            "[red]Email Address cannot be empty or null.[/]";
-        private const string TwoFactorCodeValidationResultErrorMessage =
-            "[red]Email Address cannot be empty or null.[/]";
-
-        public BitwardenCredentials GetBitwardenCredential()
+        public BitwardenCredentials GetBitwardenCredential(
+            BitwardenConfiguration bitwardenConfiguration
+        )
         {
             var hasValidCredential =
                 bitwardenCredentials.ApiKeyCredential is not null
@@ -58,14 +29,7 @@ namespace Bitwarden_Backup.Services
 
             if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasValidCredential)
             {
-                throw new Exception(NoCredentialsErrorMessage);
-            }
-
-            GetBitwardenConfiguration();
-
-            if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
-            {
-                // Implement cancel
+                throw new Exception(ErrorMessages.NoCredentials);
             }
 
             switch (bitwardenConfiguration.LogInMethod)
@@ -77,7 +41,7 @@ namespace Bitwarden_Backup.Services
                     GetEmailPasswordCredentials();
                     break;
                 default:
-                    throw new NotImplementedException(InvalidLogInMethodErrorMessage);
+                    throw new NotImplementedException(ErrorMessages.InvalidLogInMethod);
             }
 
             if (
@@ -91,38 +55,6 @@ namespace Bitwarden_Backup.Services
             return bitwardenCredentials;
         }
 
-        public BitwardenConfiguration GetBitwardenConfiguration()
-        {
-            // Set log in method to avoid reprompt if set in appsettings or enough credentials were provided
-            bitwardenConfiguration.SetLogInMethod(bitwardenCredentials);
-
-            if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
-            {
-                bitwardenConfiguration.LogInMethod = AnsiConsole.Prompt(
-                    new SelectionPrompt<LogInMethod>()
-                        .Title(LoginMethodPrompt)
-                        .PageSize(5)
-                        .MoreChoicesText(MoreChoicesText)
-                        .AddChoices([LogInMethod.ApiKey, LogInMethod.EmailPw, LogInMethod.None])
-                        .UseConverter(
-                            logInMethod =>
-                                logInMethod switch
-                                {
-                                    LogInMethod.ApiKey => "Using Api Key",
-                                    LogInMethod.EmailPw => "Using Email and Password",
-                                    LogInMethod.None => "Cancel",
-                                    _
-                                        => throw new NotImplementedException(
-                                            InvalidLogInMethodErrorMessage
-                                        )
-                                }
-                        )
-                );
-            }
-
-            return bitwardenConfiguration;
-        }
-
         private void GetApiKeyCredentials()
         {
             bitwardenCredentials.ApiKeyCredential ??= new ApiKeyCredential();
@@ -130,18 +62,18 @@ namespace Bitwarden_Backup.Services
             var apiKeyCredential = bitwardenCredentials.ApiKeyCredential;
 
             apiKeyCredential.ClientId.GetUserInputAsStringUsingConsole(
-                ClientIdPrompt,
-                ClientIdValidationResultErrorMessage
+                Prompts.ClientId,
+                ErrorMessages.ClientIdValidationResult
             );
 
             apiKeyCredential.ClientSecret.GetUserInputAsStringUsingConsole(
-                ClientSecretPrompt,
-                ClientSecretValidationResultErrorMessage
+                Prompts.ClientSecret,
+                ErrorMessages.ClientSecretValidationResult
             );
 
             apiKeyCredential.MasterPassword.GetUserInputAsStringUsingConsole(
-                MasterPasswordPrompt,
-                MasterPasswordValidationResultErrorMessage,
+                Prompts.MasterPassword,
+                ErrorMessages.MasterPasswordValidationResult,
                 true
             );
         }
@@ -153,13 +85,13 @@ namespace Bitwarden_Backup.Services
             var emailPasswordCredential = bitwardenCredentials.EmailPasswordCredential;
 
             emailPasswordCredential.Email.GetUserInputAsStringUsingConsole(
-                EmailPrompt,
-                EmailValidationResultErrorMessage
+                Prompts.Email,
+                ErrorMessages.EmailValidationResult
             );
 
             emailPasswordCredential.MasterPassword.GetUserInputAsStringUsingConsole(
-                MasterPasswordPrompt,
-                MasterPasswordValidationResultErrorMessage,
+                Prompts.MasterPassword,
+                ErrorMessages.MasterPasswordValidationResult,
                 true
             );
 
@@ -168,9 +100,9 @@ namespace Bitwarden_Backup.Services
                 emailPasswordCredential.TwoFactorMethod = emailPasswordCredential.TwoFactorMethod =
                     AnsiConsole.Prompt(
                         new SelectionPrompt<TwoFactorMethod>()
-                            .Title(TwoFactorMethodPrompt)
+                            .Title(Prompts.TwoFactorMethod)
                             .PageSize(5)
-                            .MoreChoicesText(MoreChoicesText)
+                            .MoreChoicesText(Texts.MoreChoices)
                             .AddChoices(
                                 [
                                     TwoFactorMethod.Authenticator,
@@ -191,7 +123,7 @@ namespace Bitwarden_Backup.Services
                                         TwoFactorMethod.Cancel => "Cancel",
                                         _
                                             => throw new NotImplementedException(
-                                                InvalidTwoFactorMethodErrorMessage
+                                                ErrorMessages.InvalidTwoFactorMethod
                                             )
                                     }
                             )
@@ -204,8 +136,8 @@ namespace Bitwarden_Backup.Services
             )
             {
                 emailPasswordCredential.TwoFactorCode.GetUserInputAsStringUsingConsole(
-                    TwoFactorCodePrompt,
-                    TwoFactorCodeValidationResultErrorMessage
+                    Prompts.TwoFactorCode,
+                    ErrorMessages.TwoFactorCodeValidationResult
                 );
             }
         }
@@ -213,6 +145,8 @@ namespace Bitwarden_Backup.Services
 
     internal interface ICredentialService
     {
-        public BitwardenCredentials GetBitwardenCredential();
+        public BitwardenCredentials GetBitwardenCredential(
+            BitwardenConfiguration bitwardenConfiguration
+        );
     }
 }
