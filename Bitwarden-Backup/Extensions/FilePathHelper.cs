@@ -8,10 +8,11 @@
             string dateFormat = ""
         )
         {
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             var fileNameSuffix = string.IsNullOrWhiteSpace(dateFormat)
                 ? string.Empty
                 : $"_{DateTime.Now.ToString(dateFormat)}";
-            var tempFileName = $"{fileName}{fileNameSuffix}";
+            var tempFileName = $"{fileNameWithoutExtension}{fileNameSuffix}.json";
             var tempFullPath = Path.Combine(directoryPath, tempFileName);
 
             if (!string.IsNullOrWhiteSpace(fileName) && !File.Exists(tempFullPath))
@@ -19,7 +20,11 @@
                 return tempFullPath;
             }
 
-            return GetNextAvailableFullFilePath(directoryPath, fileName, dateFormat);
+            return GetNextAvailableFullFilePath(
+                directoryPath,
+                fileNameWithoutExtension,
+                dateFormat
+            );
         }
 
         internal static string GetNextAvailableFullFilePath(
@@ -36,7 +41,7 @@
 
             while (File.Exists(tempFullFilePath))
             {
-                tempFullFilePath = Path.Combine(directoryPath, $"{tempFileName}_{counter}");
+                tempFullFilePath = Path.Combine(directoryPath, $"{tempFileName}_{counter}.json");
                 counter++;
 
                 if (counter % 10 == 0)

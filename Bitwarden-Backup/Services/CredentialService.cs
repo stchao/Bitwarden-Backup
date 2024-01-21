@@ -4,289 +4,215 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
+using Spectre.Console;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class CredentialService(
-        ILogger<CredentialService> logger,
-        IConfiguration configuration
-    ) : ICredentialService
+    internal class CredentialService(IConfiguration configuration) : ICredentialService
     {
-        private readonly Credential credential =
-            configuration.GetSection(Credential.Key).Get<Credential>() ?? new Credential();
-        private readonly bool isInteractive = configuration.GetValue<bool>("IsInteractive");
+        private readonly BitwardenCredentials bitwardenCredentials =
+            configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
+            ?? new BitwardenCredentials();
+        private readonly BitwardenConfiguration bitwardenConfiguration =
+            configuration.GetSection(BitwardenConfiguration.Key).Get<BitwardenConfiguration>()
+            ?? new BitwardenConfiguration();
 
-        // Prompt constants
-        private const string SkipPrompt =
-            "Type 'skip' or press enter to skip and use the default value";
-        private const string LoginChoicePrompt =
-            "How would you like to log in? Enter 1 or 'API' to use api, or enter 2 or 'EMAIL' to use email and password.";
-        private const string BitwardenServerPrompt = "Please enter the Bitwarden server url.";
-        private const string ClientIdPrompt = "Please enter your Client ID.";
-        private const string ClientSecretPrompt = "Please enter your Client Secret.";
-        private const string ClientPasswordPrompt =
-            "When unlocking with API, your master password is required. Please enter your password.";
-        private const string EmailPrompt = "Please enter your email.";
-        private const string PasswordPrompt = "Please enter your password.";
-        private const string TwoFactorPrompt =
-            "Is two factor enabled? Enter 1 or 'AUTH' for authenticator, 2 or 'YUBI' for Yubikey, or 3 or 'EMAIL' for email.";
-        private const string TwoFactorAuthenticatorPrompt =
-            "Please enter the 6 digit code from your authenticator app.";
-        private const string TwoFactorYubiKeyPrompt =
-            "Please insert your YubiKey and then touch its button.";
+        // Prompts
+        private const string LoginMethodPrompt = "How would you like to log in? ";
+        private const string TwoFactorMethodPrompt = "How would you like to log in? ";
+        private const string ClientIdPrompt = "? Client Id: ";
+        private const string ClientSecretPrompt = "? Client Secret: ";
+        private const string MasterPasswordPrompt = "? Master Password: [input is hidden] ";
+        private const string EmailPrompt = "? Email address: ";
+        private const string TwoFactorCodePrompt = "? Two-step login code: ";
+        private const string MoreChoicesText = "[grey](Move up and down to reveal more choices)[/]";
 
-        public Credential GetBitwardenCredential()
+        // Error Messages
+        private const string NoCredentialsErrorMessage =
+            "Interactive log in is disabled and there are no credential(s) in appsettings.json.";
+        private const string InvalidLogInMethodErrorMessage =
+            "The log in methods currently supported are using api key or using email and password credentials.";
+        private const string InvalidTwoFactorMethodErrorMessage =
+            "The two factor methods currently supported are using authenticator app, YubiKey OTP security key, or email.";
+        private const string ClientIdValidationResultErrorMessage =
+            "[red]Client Id cannot be empty or null.[/]";
+        private const string ClientSecretValidationResultErrorMessage =
+            "[red]Client Secret cannot be empty or null.[/]";
+        private const string MasterPasswordValidationResultErrorMessage =
+            "[red]Client Id cannot be empty or null.[/]";
+        private const string EmailValidationResultErrorMessage =
+            "[red]Email Address cannot be empty or null.[/]";
+        private const string TwoFactorCodeValidationResultErrorMessage =
+            "[red]Email Address cannot be empty or null.[/]";
+
+        public BitwardenCredentials GetBitwardenCredential()
         {
             var hasValidCredential =
-                credential.HasValueForUrl()
-                && (credential.HasValuesForAPI() || credential.HasValuesForEmailPW());
+                bitwardenCredentials.ApiKeyCredential is not null
+                || bitwardenCredentials.EmailPasswordCredential is not null;
 
-            if (!isInteractive && !hasValidCredential)
+            if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasValidCredential)
             {
-                throw new Exception(
-                    "Missing credentials to log in using API, or Email and Password"
+                throw new Exception(NoCredentialsErrorMessage);
+            }
+
+            GetBitwardenConfiguration();
+
+            if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
+            {
+                // Implement cancel
+            }
+
+            switch (bitwardenConfiguration.LogInMethod)
+            {
+                case LogInMethod.ApiKey:
+                    GetApiKeyCredentials();
+                    break;
+                case LogInMethod.EmailPw:
+                    GetEmailPasswordCredentials();
+                    break;
+                default:
+                    throw new NotImplementedException(InvalidLogInMethodErrorMessage);
+            }
+
+            if (
+                bitwardenCredentials.EmailPasswordCredential?.TwoFactorMethod
+                == TwoFactorMethod.Cancel
+            )
+            {
+                // Implement cancel
+            }
+
+            return bitwardenCredentials;
+        }
+
+        public BitwardenConfiguration GetBitwardenConfiguration()
+        {
+            // Set log in method to avoid reprompt if set in appsettings or enough credentials were provided
+            bitwardenConfiguration.SetLogInMethod(bitwardenCredentials);
+
+            if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
+            {
+                bitwardenConfiguration.LogInMethod = AnsiConsole.Prompt(
+                    new SelectionPrompt<LogInMethod>()
+                        .Title(LoginMethodPrompt)
+                        .PageSize(5)
+                        .MoreChoicesText(MoreChoicesText)
+                        .AddChoices([LogInMethod.ApiKey, LogInMethod.EmailPw, LogInMethod.None])
+                        .UseConverter(
+                            logInMethod =>
+                                logInMethod switch
+                                {
+                                    LogInMethod.ApiKey => "Using Api Key",
+                                    LogInMethod.EmailPw => "Using Email and Password",
+                                    LogInMethod.None => "Cancel",
+                                    _
+                                        => throw new NotImplementedException(
+                                            InvalidLogInMethodErrorMessage
+                                        )
+                                }
+                        )
                 );
             }
 
-            var loginChoice = GetValueUsingConsole(
-                LoginChoicePrompt,
-                "Choice: ",
-                false,
-                "2",
-                ["1", "api", "2", "email"]
+            return bitwardenConfiguration;
+        }
+
+        private void GetApiKeyCredentials()
+        {
+            bitwardenCredentials.ApiKeyCredential ??= new ApiKeyCredential();
+
+            var apiKeyCredential = bitwardenCredentials.ApiKeyCredential;
+
+            apiKeyCredential.ClientId.GetUserInputAsStringUsingConsole(
+                ClientIdPrompt,
+                ClientIdValidationResultErrorMessage
             );
 
-            credential.Url = GetStringValueUsingConsole(
-                credential.Url,
-                BitwardenServerPrompt,
-                "Url: ",
-                false,
-                "https://vault.bitwarden.com"
+            apiKeyCredential.ClientSecret.GetUserInputAsStringUsingConsole(
+                ClientSecretPrompt,
+                ClientSecretValidationResultErrorMessage
             );
 
-            switch (loginChoice?.Trim().ToLower())
-            {
-                // API
-                case "1":
-                case "api":
-                    credential.ClientId = GetStringValueUsingConsole(
-                        credential.ClientId,
-                        ClientIdPrompt,
-                        "Client Id: "
-                    );
-
-                    credential.ClientSecret = GetStringValueUsingConsole(
-                        credential.ClientSecret,
-                        ClientSecretPrompt,
-                        "Client Secret: "
-                    );
-
-                    credential.Password = GetStringValueUsingConsole(
-                        credential.Password,
-                        ClientPasswordPrompt,
-                        "Password: ",
-                        true
-                    );
-                    break;
-                // Email and Password
-                case "2":
-                case "email":
-                    credential.Email = GetStringValueUsingConsole(
-                        credential.Email,
-                        EmailPrompt,
-                        "Email: "
-                    );
-
-                    credential.Password = GetStringValueUsingConsole(
-                        credential.Password,
-                        PasswordPrompt,
-                        "Password: ",
-                        true
-                    );
-
-                    var (twoFactorMethod, twoFactorCode) = GetTwoFactorCodeUsingConsole(
-                        credential.TwoFactorMethod
-                    );
-                    credential.TwoFactorMethod = twoFactorMethod;
-                    credential.TwoFactorCode = twoFactorCode;
-                    break;
-            }
-
-            credential.SetCredentialType();
-            return credential;
+            apiKeyCredential.MasterPassword.GetUserInputAsStringUsingConsole(
+                MasterPasswordPrompt,
+                MasterPasswordValidationResultErrorMessage,
+                true
+            );
         }
 
-        public T? GetValueUsingConsole<T>(
-            string prompt,
-            string outputLineLabel = "",
-            bool hideUserInput = false,
-            T? defaultValue = default,
-            HashSet<string>? validValues = default
-        )
-            where T : IConvertible
+        private void GetEmailPasswordCredentials()
         {
-            var tempSkipPrompt = $"{SkipPrompt} '{defaultValue}'.";
-            var userResponse = string.Empty;
-            T? result = defaultValue;
+            bitwardenCredentials.EmailPasswordCredential ??= new EmailPasswordCredential();
 
-            Console.WriteLine(prompt);
-            Console.WriteLine(tempSkipPrompt);
+            var emailPasswordCredential = bitwardenCredentials.EmailPasswordCredential;
 
-            while (string.IsNullOrWhiteSpace(userResponse))
+            emailPasswordCredential.Email.GetUserInputAsStringUsingConsole(
+                EmailPrompt,
+                EmailValidationResultErrorMessage
+            );
+
+            emailPasswordCredential.MasterPassword.GetUserInputAsStringUsingConsole(
+                MasterPasswordPrompt,
+                MasterPasswordValidationResultErrorMessage,
+                true
+            );
+
+            if (emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.None)
             {
-                if (!string.IsNullOrEmpty(outputLineLabel))
-                {
-                    Console.Write(outputLineLabel);
-                }
-
-                userResponse = hideUserInput
-                    ? GetUserResponseWithoutDisplaying()
-                    : Console.ReadLine();
-
-                // Add new line for spacing
-                Console.WriteLine();
-
-                try
-                {
-                    if (userResponse is null)
-                    {
-                        continue;
-                    }
-
-                    if (
-                        userResponse == string.Empty
-                        || userResponse.Equals("skip", StringComparison.CurrentCultureIgnoreCase)
-                    )
-                    {
-                        return defaultValue;
-                    }
-
-                    if (
-                        validValues?.Count > 0
-                        && !validValues.Contains(userResponse.Trim().ToLower())
-                    )
-                    {
-                        throw new Exception("Invalid user response.");
-                    }
-
-                    result = (T)Convert.ChangeType(userResponse, typeof(T));
-                }
-                catch
-                {
-                    // Failed to convert. Reprompt user.
-                    Console.WriteLine(
-                        $"Invalid response. The response must be of type {typeof(T).Name}.\n"
+                emailPasswordCredential.TwoFactorMethod = emailPasswordCredential.TwoFactorMethod =
+                    AnsiConsole.Prompt(
+                        new SelectionPrompt<TwoFactorMethod>()
+                            .Title(TwoFactorMethodPrompt)
+                            .PageSize(5)
+                            .MoreChoicesText(MoreChoicesText)
+                            .AddChoices(
+                                [
+                                    TwoFactorMethod.Authenticator,
+                                    TwoFactorMethod.Email,
+                                    TwoFactorMethod.YubiKey,
+                                    TwoFactorMethod.None,
+                                    TwoFactorMethod.Cancel,
+                                ]
+                            )
+                            .UseConverter(
+                                twoFactorMethod =>
+                                    twoFactorMethod switch
+                                    {
+                                        TwoFactorMethod.Authenticator => "Authenticator App",
+                                        TwoFactorMethod.YubiKey => "YubiKey OTP Security Key",
+                                        TwoFactorMethod.Email => "Email",
+                                        TwoFactorMethod.None => "None",
+                                        TwoFactorMethod.Cancel => "Cancel",
+                                        _
+                                            => throw new NotImplementedException(
+                                                InvalidTwoFactorMethodErrorMessage
+                                            )
+                                    }
+                            )
                     );
-                    result = defaultValue;
-                    userResponse = string.Empty;
-                }
             }
 
-            return result;
-        }
-
-        private string GetStringValueUsingConsole(
-            string currentValue,
-            string prompt,
-            string outputLineLabel = "",
-            bool hideUserInput = false,
-            string defaultValue = "",
-            HashSet<string>? validValues = default
-        )
-        {
-            if (!string.IsNullOrEmpty(currentValue))
+            if (
+                emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.Authenticator
+                || emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.YubiKey
+            )
             {
-                return currentValue;
+                emailPasswordCredential.TwoFactorCode.GetUserInputAsStringUsingConsole(
+                    TwoFactorCodePrompt,
+                    TwoFactorCodeValidationResultErrorMessage
+                );
             }
-
-            return GetValueUsingConsole(
-                    prompt,
-                    outputLineLabel,
-                    hideUserInput,
-                    defaultValue,
-                    validValues
-                ) ?? defaultValue;
-        }
-
-        private (
-            TwoFactorMethod twoFactorMethod,
-            string twoFactorCode
-        ) GetTwoFactorCodeUsingConsole(TwoFactorMethod twoFactorMethod)
-        {
-            var twoFactorChoice =
-                twoFactorMethod == TwoFactorMethod.None
-                    ? GetValueUsingConsole(
-                        TwoFactorPrompt,
-                        "Two Factor Choice: ",
-                        false,
-                        string.Empty,
-                        ["1", "auth", "2", "yubi", "3", "email"]
-                    ) ?? string.Empty
-                    : twoFactorMethod.ToString();
-
-            return (twoFactorChoice?.Trim().ToLower()) switch
-            {
-                "1"
-                or "auth"
-                or "authenticator"
-                    => (
-                        TwoFactorMethod.Authenticator,
-                        GetValueUsingConsole<string>(
-                            TwoFactorAuthenticatorPrompt,
-                            "Authenticator Code: "
-                        ) ?? string.Empty
-                    ),
-                "2"
-                or "yubi"
-                or "yubikey"
-                    => (
-                        TwoFactorMethod.YubiKey,
-                        GetValueUsingConsole<string>(TwoFactorYubiKeyPrompt, "Yubi Key Code: ")
-                            ?? string.Empty
-                    ),
-                "3" or "email" => (TwoFactorMethod.Email, string.Empty),
-                _ => throw new NotSupportedException(),
-            };
-        }
-
-        private static string GetUserResponseWithoutDisplaying()
-        {
-            var result = new StringBuilder();
-
-            while (true)
-            {
-                var key = Console.ReadKey(true);
-
-                if (key.Key == ConsoleKey.Enter)
-                {
-                    break;
-                }
-
-                result.Append(key.KeyChar);
-            }
-
-            // Add new line for spacing
-            Console.WriteLine();
-
-            return result.ToString();
         }
     }
 
     internal interface ICredentialService
     {
-        public Credential GetBitwardenCredential();
-
-        public T? GetValueUsingConsole<T>(
-            string prompt,
-            string outputLineLabel = "",
-            bool hideUserInput = false,
-            T? defaultValue = default,
-            HashSet<string>? validValues = default
-        )
-            where T : IConvertible;
+        public BitwardenCredentials GetBitwardenCredential();
     }
 }

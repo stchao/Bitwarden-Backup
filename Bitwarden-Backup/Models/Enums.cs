@@ -6,15 +6,16 @@
         encrypted_json
     }
 
-    internal enum CredentialType
+    internal enum LogInMethod
     {
         None = 0,
-        Api,
+        ApiKey,
         EmailPw
     }
 
     internal enum TwoFactorMethod
     {
+        Cancel = -2,
         None = -1,
         Authenticator = 0,
         Email = 1,
