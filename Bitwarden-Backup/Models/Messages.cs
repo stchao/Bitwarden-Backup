@@ -39,6 +39,6 @@ namespace Bitwarden_Backup.Models
         internal const string EmailValidationResult =
             "[red]Email Address cannot be empty or null.[/]";
         internal const string TwoFactorCodeValidationResult =
-            "[red]Email Address cannot be empty or null.[/]";
+            "[red]Two factor code cannot be empty or null.[/]";
     }
 }

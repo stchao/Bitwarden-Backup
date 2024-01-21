@@ -8,7 +8,7 @@ namespace Bitwarden_Backup.Models
 {
     internal class ExportFileProperty
     {
-        public static string AppSettingsKey = "ExportFile";
+        public static string Key = "ExportFile";
 
         public string Directory { get; set; } = string.Empty;
 
