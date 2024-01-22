@@ -1,6 +1,4 @@
-﻿using System.Net;
-
-namespace Bitwarden_Backup.Models
+﻿namespace Bitwarden_Backup.Models
 {
     internal class BitwardenCredentials
     {

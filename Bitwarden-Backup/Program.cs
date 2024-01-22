@@ -1,11 +1,9 @@
-﻿using System.Text;
-using Bitwarden_Backup.Extensions;
+﻿using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Bitwarden_Backup.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace Bitwarden_Backup
 {
@@ -28,15 +26,22 @@ namespace Bitwarden_Backup
 
             try
             {
+                logger.LogDebug("Getting required service(s).");
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var credentialService = serviceProvider.GetRequiredService<ICredentialService>();
                 bitwardenService = serviceProvider.GetRequiredService<IBitwardenService>();
 
+                logger.LogDebug("Getting bitwarden configuration.");
                 var bitwardenConfiguration = bitwardenService.GetBitwardenConfiguration();
+                logger.LogInformation("Got bitwarden configuration.");
+
+                logger.LogDebug("Getting bitwarden credentials.");
                 var bitwardenCredentials = credentialService.GetBitwardenCredential(
                     bitwardenConfiguration
                 );
+                logger.LogInformation("Got bitwarden credentials.");
 
+                logger.LogDebug("Logging in to Bitwarden vault.");
                 var bitwardenLogInResponse = bitwardenConfiguration.LogInMethod switch
                 {
                     LogInMethod.ApiKey
@@ -60,6 +65,12 @@ namespace Bitwarden_Backup
                     return;
                 }
 
+                logger.LogInformation(
+                    "Logged in to Bitwarden vault with response: \n{@bitwardenResponse}",
+                    bitwardenLogInResponse
+                );
+                logger.LogDebug("Exporting Bitwarden vault.");
+
                 var bitwardenExportResponse = bitwardenService.ExportVault();
 
                 if (!bitwardenExportResponse.Success)
@@ -69,6 +80,11 @@ namespace Bitwarden_Backup
                         bitwardenExportResponse
                     );
                 }
+
+                logger.LogInformation(
+                    "Exported Bitwarden vault with response: \n{@bitwardenResponse}",
+                    bitwardenExportResponse
+                );
             }
             catch (InvalidOperationException ex)
             {

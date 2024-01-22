@@ -1,19 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Bitwarden_Backup.Extensions;
+﻿using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using Spectre.Console;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class CredentialService(IConfiguration configuration) : ICredentialService
+    internal class CredentialService(
+        ILogger<CredentialService> logger,
+        IConfiguration configuration
+    ) : ICredentialService
     {
         private readonly BitwardenCredentials bitwardenCredentials =
             configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
@@ -61,16 +57,21 @@ namespace Bitwarden_Backup.Services
 
             var apiKeyCredential = bitwardenCredentials.ApiKeyCredential;
 
+            logger.LogDebug("Getting client id for api key credentials using Spectre.Console.");
             apiKeyCredential.ClientId.GetUserInputAsStringUsingConsole(
                 Prompts.ClientId,
                 ErrorMessages.ClientIdValidationResult
             );
 
+            logger.LogDebug("Getting client secret for api key credentials using Spectre.Console.");
             apiKeyCredential.ClientSecret.GetUserInputAsStringUsingConsole(
                 Prompts.ClientSecret,
                 ErrorMessages.ClientSecretValidationResult
             );
 
+            logger.LogDebug(
+                "Getting master password for api key credentials using Spectre.Console."
+            );
             apiKeyCredential.MasterPassword.GetUserInputAsStringUsingConsole(
                 Prompts.MasterPassword,
                 ErrorMessages.MasterPasswordValidationResult,
@@ -84,11 +85,17 @@ namespace Bitwarden_Backup.Services
 
             var emailPasswordCredential = bitwardenCredentials.EmailPasswordCredential;
 
+            logger.LogDebug(
+                "Getting email address for email password credentials using Spectre.Console."
+            );
             emailPasswordCredential.Email.GetUserInputAsStringUsingConsole(
                 Prompts.Email,
                 ErrorMessages.EmailValidationResult
             );
 
+            logger.LogDebug(
+                "Getting master password for email password credentials using Spectre.Console."
+            );
             emailPasswordCredential.MasterPassword.GetUserInputAsStringUsingConsole(
                 Prompts.MasterPassword,
                 ErrorMessages.MasterPasswordValidationResult,
@@ -97,6 +104,9 @@ namespace Bitwarden_Backup.Services
 
             if (emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.None)
             {
+                logger.LogDebug(
+                    "Getting two factor method for email password credentials using Spectre.Console."
+                );
                 emailPasswordCredential.TwoFactorMethod = emailPasswordCredential.TwoFactorMethod =
                     AnsiConsole.Prompt(
                         new SelectionPrompt<TwoFactorMethod>()
@@ -135,6 +145,9 @@ namespace Bitwarden_Backup.Services
                 || emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.YubiKey
             )
             {
+                logger.LogDebug(
+                    "Getting two factor code for email password credentials using Spectre.Console."
+                );
                 emailPasswordCredential.TwoFactorCode.GetUserInputAsStringUsingConsole(
                     Prompts.TwoFactorCode,
                     ErrorMessages.TwoFactorCodeValidationResult

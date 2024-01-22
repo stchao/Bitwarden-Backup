@@ -1,20 +1,16 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
 using System.Text;
 using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 using Spectre.Console;
 
 namespace Bitwarden_Backup.Services
 {
     internal class BitwardenService(ILogger<BitwardenService> logger, IConfiguration configuration)
-        : IBitwardenService,
-            IDisposable
+        : IBitwardenService
     {
         private string sessionKey = string.Empty;
         private string bitwardenExecutableName = "bw";
@@ -37,6 +33,7 @@ namespace Bitwarden_Backup.Services
 
             if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
             {
+                logger.LogDebug("Getting log in method using Spectre.Console.");
                 bitwardenConfiguration.LogInMethod = AnsiConsole.Prompt(
                     new SelectionPrompt<LogInMethod>()
                         .Title(Prompts.LoginMethod)
@@ -64,14 +61,14 @@ namespace Bitwarden_Backup.Services
 
         public BitwardenResponse LogIn(EmailPasswordCredential credential)
         {
-            // Sanity logout
+            logger.LogDebug("Sanity log out.");
             LogOut();
 
             // Logic for when user selects none or cancels
 
             if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
             {
-                // Saved setting `config`.
+                logger.LogDebug("Saving Bitwarden Server config.");
                 RunBitwardenCommand($"config server {bitwardenConfiguration.Url}");
             }
 
@@ -108,12 +105,14 @@ namespace Bitwarden_Backup.Services
                 );
             }
 
+            logger.LogDebug("Running login command with email address and master password.");
             var bitwardenLogInResponse = RunBitwardenCommand(
                 $"login {credential.Email}{authenticationMethod} --response"
             );
 
             if (bitwardenLogInResponse.Success && bitwardenLogInResponse.Data is not null)
             {
+                logger.LogDebug("Setting session key.");
                 sessionKey = bitwardenLogInResponse.Data.Raw;
             }
 
@@ -122,7 +121,7 @@ namespace Bitwarden_Backup.Services
 
         public BitwardenResponse LogIn(ApiKeyCredential credential)
         {
-            // Sanity logout!
+            logger.LogDebug("Sanity log out.");
             LogOut();
 
             // Logic for when user selects none or cancels
@@ -132,10 +131,11 @@ namespace Bitwarden_Backup.Services
 
             if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
             {
-                // Saved setting `config`.
+                logger.LogDebug("Saving Bitwarden Server config.");
                 RunBitwardenCommand($"config server {bitwardenConfiguration.Url} --response");
             }
 
+            logger.LogDebug("Running login command with api key.");
             var bitwardenLogInResponse = RunBitwardenCommand("login --apikey --response");
 
             if (!bitwardenLogInResponse.Success)
@@ -143,6 +143,7 @@ namespace Bitwarden_Backup.Services
                 return bitwardenLogInResponse;
             }
 
+            logger.LogDebug("Running unlock command.");
             var bitwardenUnlockResponse = RunBitwardenCommand($"unlock --response");
 
             Environment.SetEnvironmentVariable("BW_CLIENTID", null);
@@ -150,6 +151,7 @@ namespace Bitwarden_Backup.Services
 
             if (!bitwardenUnlockResponse.Success && bitwardenUnlockResponse.Data is not null)
             {
+                logger.LogDebug("Setting session key.");
                 sessionKey = bitwardenUnlockResponse.Data.Raw;
             }
 
@@ -180,6 +182,7 @@ namespace Bitwarden_Backup.Services
 
             var additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
 
+            logger.LogDebug("Running export vault command.");
             return RunBitwardenCommand(command, additionalCommand);
         }
 
@@ -204,6 +207,7 @@ namespace Bitwarden_Backup.Services
                 tempCommand.Append(additionalCommands);
             }
 
+            logger.LogDebug("Getting Bitwarden path and creating process.");
             var process = new Process()
             {
                 StartInfo = new ProcessStartInfo()
@@ -234,16 +238,23 @@ namespace Bitwarden_Backup.Services
                 }
             };
 
+            logger.LogDebug("Starting command '{command}'.", command);
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
             var inputIndex = 0;
-            var inputRemainingCount = inputs?.Count ?? 0;
+            var inputCount = inputs?.Count ?? 0;
 
-            while (!process.HasExited && inputIndex < inputRemainingCount)
+            logger.LogDebug("Starting user input loop with inputCount: {inputCount}.", inputCount);
+            while (!process.HasExited && inputIndex < inputCount)
             {
                 var currentInput = inputs![inputIndex];
+                logger.LogDebug(
+                    "Index {index} with prompt '{prompt}'.",
+                    inputIndex,
+                    currentInput.Prompt
+                );
                 var userInput = currentInput.Value.GetUserInputAsStringUsingConsole(
                     currentInput.Prompt,
                     currentInput.ValidationResultErrorMessage,
@@ -255,6 +266,7 @@ namespace Bitwarden_Backup.Services
             }
 
             var processExited = process.WaitForExit(TimeSpan.FromSeconds(60));
+            logger.LogDebug("Closing process.");
             process.Close();
 
             if (!processExited)
@@ -263,26 +275,33 @@ namespace Bitwarden_Backup.Services
             }
 
             var errorMessage = error.ToString();
-            var bitwardenErrorResponse = JsonConvert.DeserializeObject<BitwardenResponse>(
-                errorMessage
-            );
+            var bitwardenErrorResponse =
+                JsonConvert.DeserializeObject<BitwardenResponse>(errorMessage)
+                ?? new BitwardenResponse() { Success = false, Message = errorMessage };
 
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
-                return bitwardenErrorResponse
-                    ?? new BitwardenResponse() { Success = false, Message = errorMessage };
+                logger.LogError(
+                    "Error occurred while running the '{command}': \n{@bitwardenResponse}",
+                    command,
+                    bitwardenErrorResponse
+                );
+                return bitwardenErrorResponse;
             }
 
             var outputMessage = output.ToString();
-            var bitwardenOutputResponse = JsonConvert.DeserializeObject<BitwardenResponse>(
-                outputMessage
+            var bitwardenOutputResponse =
+                JsonConvert.DeserializeObject<BitwardenResponse>(outputMessage)
+                ?? new BitwardenResponse() { Success = true, Message = outputMessage };
+
+            logger.LogDebug(
+                "Output while running the '{command}': \n{@bitwardenResponse}",
+                command,
+                bitwardenOutputResponse
             );
 
-            return bitwardenOutputResponse
-                ?? new BitwardenResponse() { Success = true, Message = outputMessage };
+            return bitwardenOutputResponse;
         }
-
-        public void Dispose() => LogOut();
 
         private string GetBitwardenPath()
         {
