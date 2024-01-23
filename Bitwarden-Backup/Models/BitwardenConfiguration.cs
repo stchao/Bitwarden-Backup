@@ -14,13 +14,19 @@
 
         public void SetLogInMethod(BitwardenCredentials bitwardenCredentials)
         {
-            if (bitwardenCredentials.ApiKeyCredential is not null)
+            if (
+                bitwardenCredentials.ApiKeyCredential is not null
+                && bitwardenCredentials.ApiKeyCredential.HasNonEmptyValues()
+            )
             {
                 LogInMethod = LogInMethod.ApiKey;
                 return;
             }
 
-            if (bitwardenCredentials.EmailPasswordCredential is not null)
+            if (
+                bitwardenCredentials.EmailPasswordCredential is not null
+                && bitwardenCredentials.EmailPasswordCredential.HasNonEmptyValues()
+            )
             {
                 LogInMethod = LogInMethod.EmailPw;
                 return;

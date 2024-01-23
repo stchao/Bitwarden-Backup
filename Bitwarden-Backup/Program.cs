@@ -4,6 +4,7 @@ using Bitwarden_Backup.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Bitwarden_Backup
 {
@@ -97,7 +98,7 @@ namespace Bitwarden_Backup
             finally
             {
                 bitwardenService?.LogOut();
-                logger.LogInformation("Exiting program.\n");
+                logger.LogInformation("Logged out and exiting program.\n");
             }
         }
     }

@@ -107,7 +107,9 @@ namespace Bitwarden_Backup.Services
 
             logger.LogDebug("Running login command with email address and master password.");
             var bitwardenLogInResponse = RunBitwardenCommand(
-                $"login {credential.Email}{authenticationMethod} --response"
+                $"login {credential.Email}{authenticationMethod} --response",
+                string.Empty,
+                inputs
             );
 
             if (bitwardenLogInResponse.Success && bitwardenLogInResponse.Data is not null)
@@ -171,7 +173,7 @@ namespace Bitwarden_Backup.Services
                 };
             }
 
-            var availableFullFilePath = FilePathHelper.GetAvailableFullFilePath(
+            var availableFullFilePath = FilePathExtension.GetAvailableFullFilePath(
                 exportFileProperty.Directory,
                 exportFileProperty.Name,
                 exportFileProperty.DateInFileNameFormat
@@ -180,7 +182,12 @@ namespace Bitwarden_Backup.Services
             var command =
                 $"export --session \"{sessionKey}\" --format {exportFileProperty.Format} --output {availableFullFilePath} --response";
 
-            var additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
+            var additionalCommand = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword))
+            {
+                additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
+            }
 
             logger.LogDebug("Running export vault command.");
             return RunBitwardenCommand(command, additionalCommand);
@@ -255,7 +262,8 @@ namespace Bitwarden_Backup.Services
                     inputIndex,
                     currentInput.Prompt
                 );
-                var userInput = currentInput.Value.GetUserInputAsStringUsingConsole(
+                var userInput = SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                    currentInput.Value,
                     currentInput.Prompt,
                     currentInput.ValidationResultErrorMessage,
                     currentInput.IsSecret,
@@ -275,12 +283,15 @@ namespace Bitwarden_Backup.Services
             }
 
             var errorMessage = error.ToString();
-            var bitwardenErrorResponse =
-                JsonConvert.DeserializeObject<BitwardenResponse>(errorMessage)
-                ?? new BitwardenResponse() { Success = false, Message = errorMessage };
 
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
+                var bitwardenErrorResponse = new BitwardenResponse()
+                {
+                    Success = false,
+                    Message = errorMessage
+                };
+
                 logger.LogError(
                     "Error occurred while running the '{command}': \n{@bitwardenResponse}",
                     command,

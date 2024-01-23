@@ -2,10 +2,10 @@
 
 namespace Bitwarden_Backup.Extensions
 {
-    internal static class AnsiConsoleExtension
+    internal static class SpectreConsoleExtension
     {
         public static string GetUserInputAsStringUsingConsole(
-            this string? initialValue,
+            string? initialValue,
             string prompt,
             string validationResultErrorMessage,
             bool isSecret = false,

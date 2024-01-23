@@ -1,6 +1,6 @@
 ﻿namespace Bitwarden_Backup.Extensions
 {
-    internal static class FilePathHelper
+    internal static class FilePathExtension
     {
         internal static string GetAvailableFullFilePath(
             string directoryPath,

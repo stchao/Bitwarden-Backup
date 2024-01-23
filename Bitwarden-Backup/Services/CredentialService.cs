@@ -20,8 +20,14 @@ namespace Bitwarden_Backup.Services
         )
         {
             var hasValidCredential =
-                bitwardenCredentials.ApiKeyCredential is not null
-                || bitwardenCredentials.EmailPasswordCredential is not null;
+                (
+                    bitwardenCredentials.ApiKeyCredential is not null
+                    && bitwardenCredentials.ApiKeyCredential.HasNonEmptyValues()
+                )
+                || (
+                    bitwardenCredentials.EmailPasswordCredential is not null
+                    && bitwardenCredentials.EmailPasswordCredential.HasNonEmptyValues()
+                );
 
             if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasValidCredential)
             {
@@ -58,25 +64,30 @@ namespace Bitwarden_Backup.Services
             var apiKeyCredential = bitwardenCredentials.ApiKeyCredential;
 
             logger.LogDebug("Getting client id for api key credentials using Spectre.Console.");
-            apiKeyCredential.ClientId.GetUserInputAsStringUsingConsole(
+            apiKeyCredential.ClientId = SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                apiKeyCredential.ClientId,
                 Prompts.ClientId,
                 ErrorMessages.ClientIdValidationResult
             );
 
             logger.LogDebug("Getting client secret for api key credentials using Spectre.Console.");
-            apiKeyCredential.ClientSecret.GetUserInputAsStringUsingConsole(
-                Prompts.ClientSecret,
-                ErrorMessages.ClientSecretValidationResult
-            );
+            apiKeyCredential.ClientSecret =
+                SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                    apiKeyCredential.ClientSecret,
+                    Prompts.ClientSecret,
+                    ErrorMessages.ClientSecretValidationResult
+                );
 
             logger.LogDebug(
                 "Getting master password for api key credentials using Spectre.Console."
             );
-            apiKeyCredential.MasterPassword.GetUserInputAsStringUsingConsole(
-                Prompts.MasterPassword,
-                ErrorMessages.MasterPasswordValidationResult,
-                true
-            );
+            apiKeyCredential.MasterPassword =
+                SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                    apiKeyCredential.MasterPassword,
+                    Prompts.MasterPassword,
+                    ErrorMessages.MasterPasswordValidationResult,
+                    true
+                );
         }
 
         private void GetEmailPasswordCredentials()
@@ -88,56 +99,59 @@ namespace Bitwarden_Backup.Services
             logger.LogDebug(
                 "Getting email address for email password credentials using Spectre.Console."
             );
-            emailPasswordCredential.Email.GetUserInputAsStringUsingConsole(
-                Prompts.Email,
-                ErrorMessages.EmailValidationResult
-            );
+            emailPasswordCredential.Email =
+                SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                    emailPasswordCredential.Email,
+                    Prompts.Email,
+                    ErrorMessages.EmailValidationResult
+                );
 
             logger.LogDebug(
                 "Getting master password for email password credentials using Spectre.Console."
             );
-            emailPasswordCredential.MasterPassword.GetUserInputAsStringUsingConsole(
-                Prompts.MasterPassword,
-                ErrorMessages.MasterPasswordValidationResult,
-                true
-            );
+            emailPasswordCredential.MasterPassword =
+                SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                    emailPasswordCredential.MasterPassword,
+                    Prompts.MasterPassword,
+                    ErrorMessages.MasterPasswordValidationResult,
+                    true
+                );
 
             if (emailPasswordCredential.TwoFactorMethod == TwoFactorMethod.None)
             {
                 logger.LogDebug(
                     "Getting two factor method for email password credentials using Spectre.Console."
                 );
-                emailPasswordCredential.TwoFactorMethod = emailPasswordCredential.TwoFactorMethod =
-                    AnsiConsole.Prompt(
-                        new SelectionPrompt<TwoFactorMethod>()
-                            .Title(Prompts.TwoFactorMethod)
-                            .PageSize(5)
-                            .MoreChoicesText(Texts.MoreChoices)
-                            .AddChoices(
-                                [
-                                    TwoFactorMethod.Authenticator,
-                                    TwoFactorMethod.Email,
-                                    TwoFactorMethod.YubiKey,
-                                    TwoFactorMethod.None,
-                                    TwoFactorMethod.Cancel,
-                                ]
-                            )
-                            .UseConverter(
-                                twoFactorMethod =>
-                                    twoFactorMethod switch
-                                    {
-                                        TwoFactorMethod.Authenticator => "Authenticator App",
-                                        TwoFactorMethod.YubiKey => "YubiKey OTP Security Key",
-                                        TwoFactorMethod.Email => "Email",
-                                        TwoFactorMethod.None => "None",
-                                        TwoFactorMethod.Cancel => "Cancel",
-                                        _
-                                            => throw new NotImplementedException(
-                                                ErrorMessages.InvalidTwoFactorMethod
-                                            )
-                                    }
-                            )
-                    );
+                emailPasswordCredential.TwoFactorMethod = AnsiConsole.Prompt(
+                    new SelectionPrompt<TwoFactorMethod>()
+                        .Title(Prompts.TwoFactorMethod)
+                        .PageSize(5)
+                        .MoreChoicesText(Texts.MoreChoices)
+                        .AddChoices(
+                            [
+                                TwoFactorMethod.Authenticator,
+                                TwoFactorMethod.Email,
+                                TwoFactorMethod.YubiKey,
+                                TwoFactorMethod.None,
+                                TwoFactorMethod.Cancel,
+                            ]
+                        )
+                        .UseConverter(
+                            twoFactorMethod =>
+                                twoFactorMethod switch
+                                {
+                                    TwoFactorMethod.Authenticator => "Authenticator App",
+                                    TwoFactorMethod.YubiKey => "YubiKey OTP Security Key",
+                                    TwoFactorMethod.Email => "Email",
+                                    TwoFactorMethod.None => "None",
+                                    TwoFactorMethod.Cancel => "Cancel",
+                                    _
+                                        => throw new NotImplementedException(
+                                            ErrorMessages.InvalidTwoFactorMethod
+                                        )
+                                }
+                        )
+                );
             }
 
             if (
@@ -148,10 +162,12 @@ namespace Bitwarden_Backup.Services
                 logger.LogDebug(
                     "Getting two factor code for email password credentials using Spectre.Console."
                 );
-                emailPasswordCredential.TwoFactorCode.GetUserInputAsStringUsingConsole(
-                    Prompts.TwoFactorCode,
-                    ErrorMessages.TwoFactorCodeValidationResult
-                );
+                emailPasswordCredential.TwoFactorCode =
+                    SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                        emailPasswordCredential.TwoFactorCode,
+                        Prompts.TwoFactorCode,
+                        ErrorMessages.TwoFactorCodeValidationResult
+                    );
             }
         }
     }

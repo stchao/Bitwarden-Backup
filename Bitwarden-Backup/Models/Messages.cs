@@ -6,7 +6,7 @@
         internal const string TwoFactorMethod = "How would you like to log in? ";
         internal const string ClientId = "? Client Id: ";
         internal const string ClientSecret = "? Client Secret: ";
-        internal const string MasterPassword = "? Master Password: [input is hidden] ";
+        internal const string MasterPassword = "? Master Password: (input is hidden) ";
         internal const string Email = "? Email address: ";
         internal const string TwoFactorCode = "? Two-step login code: ";
     }

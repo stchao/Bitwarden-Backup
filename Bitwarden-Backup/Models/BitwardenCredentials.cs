@@ -18,6 +18,14 @@
         public TwoFactorMethod TwoFactorMethod { get; set; } = TwoFactorMethod.None;
 
         public string TwoFactorCode { get; set; } = string.Empty;
+
+        public bool HasNonEmptyValues()
+        {
+            return !string.IsNullOrWhiteSpace(Email)
+                && !string.IsNullOrWhiteSpace(MasterPassword)
+                && !string.IsNullOrWhiteSpace(TwoFactorCode)
+                && TwoFactorMethod != TwoFactorMethod.None;
+        }
     }
 
     internal class ApiKeyCredential
@@ -27,5 +35,12 @@
         public string ClientSecret { get; set; } = string.Empty;
 
         public string MasterPassword { get; set; } = string.Empty;
+
+        public bool HasNonEmptyValues()
+        {
+            return !string.IsNullOrWhiteSpace(ClientId)
+                && !string.IsNullOrWhiteSpace(MasterPassword)
+                && !string.IsNullOrWhiteSpace(ClientSecret);
+        }
     }
 }
