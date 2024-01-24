@@ -4,17 +4,17 @@ using Bitwarden_Backup.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace Bitwarden_Backup
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main()
         {
             var serviceProvider = new ServiceCollection()
                 .ConfigureLogAndServices()
                 .BuildServiceProvider();
+            var cts = new CancellationTokenSource();
 
             IBitwardenService? bitwardenService = null;
             var logger = serviceProvider.GetService<ILogger<Program>>();
@@ -27,28 +27,28 @@ namespace Bitwarden_Backup
 
             try
             {
-                //Console.CancelKeyPress += (sender, args) =>
-                //{
-                //    bitwardenService?.LogOut();
-                //    logger.LogInformation(
-                //        "Cancelled, logged out of Bitwarden, and exiting program.\n"
-                //    );
-                //};
-
-                // Need to update methods that use Spectre.Console to async so that cancellation token can be passed.
+                Console.CancelKeyPress += (sender, args) =>
+                {
+                    cts.Cancel();
+                    args.Cancel = true;
+                };
 
                 logger.LogDebug("Getting required service(s).");
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var credentialService = serviceProvider.GetRequiredService<ICredentialService>();
                 bitwardenService = serviceProvider.GetRequiredService<IBitwardenService>();
+                logger.LogInformation("Got required service(s).");
 
                 logger.LogDebug("Getting bitwarden configuration.");
-                var bitwardenConfiguration = bitwardenService.GetBitwardenConfiguration();
+                var bitwardenConfiguration = await bitwardenService.GetBitwardenConfiguration(
+                    cts.Token
+                );
                 logger.LogInformation("Got bitwarden configuration.");
 
                 logger.LogDebug("Getting bitwarden credentials.");
-                var bitwardenCredentials = credentialService.GetBitwardenCredential(
-                    bitwardenConfiguration
+                var bitwardenCredentials = await credentialService.GetBitwardenCredential(
+                    bitwardenConfiguration,
+                    cts.Token
                 );
                 logger.LogInformation("Got bitwarden credentials.");
 
@@ -56,9 +56,15 @@ namespace Bitwarden_Backup
                 var bitwardenLogInResponse = bitwardenConfiguration.LogInMethod switch
                 {
                     LogInMethod.ApiKey
-                        => bitwardenService.LogIn(bitwardenCredentials.ApiKeyCredential!),
+                        => await bitwardenService.LogIn(
+                            bitwardenCredentials.ApiKeyCredential!,
+                            cts.Token
+                        ),
                     LogInMethod.EmailPw
-                        => bitwardenService.LogIn(bitwardenCredentials.EmailPasswordCredential!),
+                        => await bitwardenService.LogIn(
+                            bitwardenCredentials.EmailPasswordCredential!,
+                            cts.Token
+                        ),
                     _
                         => new BitwardenResponse()
                         {
@@ -83,7 +89,7 @@ namespace Bitwarden_Backup
                 );
                 logger.LogDebug("Exporting Bitwarden vault.");
 
-                var bitwardenExportResponse = bitwardenService.ExportVault();
+                var bitwardenExportResponse = await bitwardenService.ExportVault(cts.Token);
 
                 if (!bitwardenExportResponse.Success)
                 {
@@ -102,6 +108,10 @@ namespace Bitwarden_Backup
                     bitwardenExportResponse
                 );
             }
+            catch (TaskCanceledException)
+            {
+                logger.LogInformation("Cancelled export of Bitwarden vault.");
+            }
             catch (InvalidOperationException ex)
             {
                 logger.LogError(ex, "Failed to get the required service(s).");
@@ -112,7 +122,8 @@ namespace Bitwarden_Backup
             }
             finally
             {
-                bitwardenService?.LogOut();
+                cts.Dispose();
+                await (bitwardenService?.LogOut() ?? Task.CompletedTask);
                 logger.LogInformation("Logged out and exiting program.\n");
             }
         }

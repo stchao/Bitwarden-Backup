@@ -22,7 +22,9 @@ namespace Bitwarden_Backup.Services
             configuration.GetSection(ExportFileProperty.Key).Get<ExportFileProperty>()
             ?? new ExportFileProperty();
 
-        public BitwardenConfiguration GetBitwardenConfiguration()
+        public async Task<BitwardenConfiguration> GetBitwardenConfiguration(
+            CancellationToken cancellationToken
+        )
         {
             var bitwardenCredentials =
                 configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
@@ -34,42 +36,50 @@ namespace Bitwarden_Backup.Services
             if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
             {
                 logger.LogDebug("Getting log in method using Spectre.Console.");
-                bitwardenConfiguration.LogInMethod = AnsiConsole.Prompt(
-                    new SelectionPrompt<LogInMethod>()
-                        .Title(Prompts.LoginMethod)
-                        .PageSize(5)
-                        .MoreChoicesText(Texts.MoreChoices)
-                        .AddChoices([LogInMethod.ApiKey, LogInMethod.EmailPw, LogInMethod.None])
-                        .UseConverter(
-                            logInMethod =>
-                                logInMethod switch
-                                {
-                                    LogInMethod.ApiKey => "Using Api Key",
-                                    LogInMethod.EmailPw => "Using Email and Password",
-                                    LogInMethod.None => "Cancel",
-                                    _
-                                        => throw new NotImplementedException(
-                                            ErrorMessages.InvalidLogInMethod
-                                        )
-                                }
-                        )
-                );
+
+                bitwardenConfiguration.LogInMethod = await new SelectionPrompt<LogInMethod>()
+                    .Title(Prompts.LoginMethod)
+                    .PageSize(5)
+                    .MoreChoicesText(Texts.MoreChoices)
+                    .AddChoices([LogInMethod.ApiKey, LogInMethod.EmailPw, LogInMethod.None])
+                    .UseConverter(
+                        logInMethod =>
+                            logInMethod switch
+                            {
+                                LogInMethod.ApiKey => "Using Api Key",
+                                LogInMethod.EmailPw => "Using Email and Password",
+                                LogInMethod.None => "Cancel",
+                                _
+                                    => throw new NotImplementedException(
+                                        ErrorMessages.InvalidLogInMethod
+                                    )
+                            }
+                    )
+                    .ShowAsync(AnsiConsole.Console, cancellationToken);
             }
 
             return bitwardenConfiguration;
         }
 
-        public BitwardenResponse LogIn(EmailPasswordCredential credential)
+        public async Task<BitwardenResponse> LogIn(
+            EmailPasswordCredential credential,
+            CancellationToken cancellationToken
+        )
         {
             logger.LogDebug("Sanity log out.");
-            LogOut();
+            await LogOut(cancellationToken);
 
             // Logic for when user selects none or cancels
 
             if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
             {
                 logger.LogDebug("Saving Bitwarden Server config.");
-                RunBitwardenCommand($"config server {bitwardenConfiguration.Url}");
+                await RunBitwardenCommand(
+                    $"config server {bitwardenConfiguration.Url}",
+                    string.Empty,
+                    null,
+                    cancellationToken
+                );
             }
 
             var inputs = new List<StandardInput>()
@@ -106,10 +116,11 @@ namespace Bitwarden_Backup.Services
             }
 
             logger.LogDebug("Running login command with email address and master password.");
-            var bitwardenLogInResponse = RunBitwardenCommand(
+            var bitwardenLogInResponse = await RunBitwardenCommand(
                 $"login {credential.Email}{authenticationMethod} --response",
                 string.Empty,
-                inputs
+                inputs,
+                cancellationToken
             );
 
             if (bitwardenLogInResponse.Success && bitwardenLogInResponse.Data is not null)
@@ -121,10 +132,13 @@ namespace Bitwarden_Backup.Services
             return bitwardenLogInResponse;
         }
 
-        public BitwardenResponse LogIn(ApiKeyCredential credential)
+        public async Task<BitwardenResponse> LogIn(
+            ApiKeyCredential credential,
+            CancellationToken cancellationToken
+        )
         {
             logger.LogDebug("Sanity log out.");
-            LogOut();
+            await LogOut(cancellationToken);
 
             // Logic for when user selects none or cancels
 
@@ -134,11 +148,29 @@ namespace Bitwarden_Backup.Services
             if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
             {
                 logger.LogDebug("Saving Bitwarden Server config.");
-                RunBitwardenCommand($"config server {bitwardenConfiguration.Url} --response");
+                var bitwardenConfigResponse = await RunBitwardenCommand(
+                    $"config server {bitwardenConfiguration.Url} --response",
+                    string.Empty,
+                    null,
+                    cancellationToken
+                );
+
+                if (!bitwardenConfigResponse.Success)
+                {
+                    return bitwardenConfigResponse;
+                }
+
+                logger.LogInformation("Set config server to {url}", bitwardenConfiguration.Url);
+                logger.LogDebug("Bitwarden config response: \n{response}", bitwardenConfigResponse);
             }
 
             logger.LogDebug("Running login command with api key.");
-            var bitwardenLogInResponse = RunBitwardenCommand("login --apikey --response");
+            var bitwardenLogInResponse = await RunBitwardenCommand(
+                "login --apikey --response",
+                string.Empty,
+                null,
+                cancellationToken
+            );
 
             if (!bitwardenLogInResponse.Success)
             {
@@ -146,12 +178,25 @@ namespace Bitwarden_Backup.Services
             }
 
             logger.LogDebug("Running unlock command.");
-            var bitwardenUnlockResponse = RunBitwardenCommand($"unlock --response");
+            var bitwardenUnlockResponse = await RunBitwardenCommand(
+                $"unlock --response",
+                string.Empty,
+                null,
+                cancellationToken
+            );
 
             Environment.SetEnvironmentVariable("BW_CLIENTID", null);
             Environment.SetEnvironmentVariable("BW_CLIENTSECRET", null);
 
-            if (!bitwardenUnlockResponse.Success && bitwardenUnlockResponse.Data is not null)
+            if (
+                !bitwardenUnlockResponse.Success
+                && !bitwardenUnlockResponse.Message.StartsWith(ErrorMessages.AlreadyLoggedIn)
+            )
+            {
+                return bitwardenUnlockResponse;
+            }
+
+            if (bitwardenUnlockResponse.Data is not null)
             {
                 logger.LogDebug("Setting session key.");
                 sessionKey = bitwardenUnlockResponse.Data.Raw;
@@ -160,9 +205,11 @@ namespace Bitwarden_Backup.Services
             return bitwardenUnlockResponse;
         }
 
-        public BitwardenResponse LogOut() => RunBitwardenCommand("logout --response");
+        public async Task<BitwardenResponse> LogOut(
+            CancellationToken cancellationToken = default
+        ) => await RunBitwardenCommand("logout --response", string.Empty, null, cancellationToken);
 
-        public BitwardenResponse ExportVault()
+        public async Task<BitwardenResponse> ExportVault(CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(sessionKey))
             {
@@ -190,18 +237,20 @@ namespace Bitwarden_Backup.Services
             }
 
             logger.LogDebug("Running export vault command.");
-            return RunBitwardenCommand(command, additionalCommand);
+            return await RunBitwardenCommand(command, additionalCommand, null, cancellationToken);
         }
 
-        public BitwardenResponse RunBitwardenCommand(
+        public async Task<BitwardenResponse> RunBitwardenCommand(
             string command,
             string additionalCommands = "",
-            List<StandardInput>? inputs = null
+            List<StandardInput>? inputs = null,
+            CancellationToken cancellationToken = default
         )
         {
             var output = new StringBuilder();
             var error = new StringBuilder();
             var tempCommand = new StringBuilder();
+            var isProcessStarted = false;
 
             tempCommand.Append(command);
 
@@ -236,8 +285,17 @@ namespace Bitwarden_Backup.Services
                 }
             };
 
+            _ = cancellationToken.Register(() =>
+            {
+                if (!isProcessStarted && !process.HasExited)
+                {
+                    logger.LogDebug("Killing process.");
+                    process.Kill();
+                }
+            });
+
             logger.LogDebug("Starting command '{command}'.", command);
-            process.Start();
+            isProcessStarted = process.Start();
             process.BeginOutputReadLine();
 
             var inputIndex = 0;
@@ -252,18 +310,19 @@ namespace Bitwarden_Backup.Services
                     inputIndex,
                     currentInput.Prompt
                 );
-                var userInput = SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                var userInput = await SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
                     currentInput.Value,
                     currentInput.Prompt,
                     currentInput.ValidationResultErrorMessage,
                     currentInput.IsSecret,
-                    currentInput.InputMask
+                    currentInput.InputMask,
+                    cancellationToken
                 );
                 inputIndex++;
                 process.StandardInput.WriteLine(userInput);
             }
 
-            var processExited = process.WaitForExit(TimeSpan.FromSeconds(60));
+            var processExited = process.WaitForExit(TimeSpan.FromSeconds(20));
             logger.LogDebug("Closing process.");
             process.Close();
 
@@ -274,7 +333,7 @@ namespace Bitwarden_Backup.Services
 
             if (!processExited)
             {
-                bitwardenOutputResponse.Message += "Process did not exit after 60s.";
+                bitwardenOutputResponse.Message += "Process did not exit after 20s.";
             }
 
             logger.LogDebug(
@@ -326,20 +385,29 @@ namespace Bitwarden_Backup.Services
 
     internal interface IBitwardenService
     {
-        public BitwardenConfiguration GetBitwardenConfiguration();
+        public Task<BitwardenConfiguration> GetBitwardenConfiguration(
+            CancellationToken cancellationToken = default
+        );
 
-        public BitwardenResponse LogIn(EmailPasswordCredential credential);
+        public Task<BitwardenResponse> LogIn(
+            EmailPasswordCredential credential,
+            CancellationToken cancellationToken = default
+        );
 
-        public BitwardenResponse LogIn(ApiKeyCredential credential);
+        public Task<BitwardenResponse> LogIn(
+            ApiKeyCredential credential,
+            CancellationToken cancellationToken = default
+        );
 
-        public BitwardenResponse LogOut();
+        public Task<BitwardenResponse> LogOut(CancellationToken cancellationToken = default);
 
-        public BitwardenResponse ExportVault();
+        public Task<BitwardenResponse> ExportVault(CancellationToken cancellationToken = default);
 
-        public BitwardenResponse RunBitwardenCommand(
+        public Task<BitwardenResponse> RunBitwardenCommand(
             string command,
             string additionalCommands = "",
-            List<StandardInput>? inputs = null
+            List<StandardInput>? inputs = null,
+            CancellationToken cancellationToken = default
         );
     }
 }

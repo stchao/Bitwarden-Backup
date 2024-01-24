@@ -4,12 +4,13 @@ namespace Bitwarden_Backup.Extensions
 {
     internal static class SpectreConsoleExtension
     {
-        public static string GetUserInputAsStringUsingConsole(
+        public static async Task<string> GetUserInputAsStringUsingConsole(
             string? initialValue,
             string prompt,
             string validationResultErrorMessage,
             bool isSecret = false,
-            char? inputMask = null
+            char? inputMask = null,
+            CancellationToken cancellationToken = default
         )
         {
             if (!string.IsNullOrEmpty(initialValue))
@@ -29,7 +30,7 @@ namespace Bitwarden_Backup.Extensions
                 textPrompt.Secret(inputMask);
             }
 
-            return AnsiConsole.Prompt(textPrompt);
+            return await textPrompt.ShowAsync(AnsiConsole.Console, cancellationToken);
         }
     }
 }

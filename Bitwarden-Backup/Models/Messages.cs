@@ -18,6 +18,7 @@
 
     internal static class ErrorMessages
     {
+        internal const string AlreadyLoggedIn = "You are already logged in as";
         internal const string NoCredentials =
             "Interactive log in is disabled and there are no credential(s) in appsettings.json.";
         internal const string InvalidLogInMethod =
