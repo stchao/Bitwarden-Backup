@@ -27,6 +27,16 @@ namespace Bitwarden_Backup
 
             try
             {
+                //Console.CancelKeyPress += (sender, args) =>
+                //{
+                //    bitwardenService?.LogOut();
+                //    logger.LogInformation(
+                //        "Cancelled, logged out of Bitwarden, and exiting program.\n"
+                //    );
+                //};
+
+                // Need to update methods that use Spectre.Console to async so that cancellation token can be passed.
+
                 logger.LogDebug("Getting required service(s).");
                 var configuration = serviceProvider.GetRequiredService<IConfiguration>();
                 var credentialService = serviceProvider.GetRequiredService<ICredentialService>();
@@ -66,8 +76,9 @@ namespace Bitwarden_Backup
                     return;
                 }
 
-                logger.LogInformation(
-                    "Logged in to Bitwarden vault with response: \n{@bitwardenResponse}",
+                logger.LogInformation("Logged in to Bitwarden vault.");
+                logger.LogDebug(
+                    "Bitwarden log in response: \n{@bitwardenResponse}",
                     bitwardenLogInResponse
                 );
                 logger.LogDebug("Exporting Bitwarden vault.");
@@ -83,7 +94,11 @@ namespace Bitwarden_Backup
                 }
 
                 logger.LogInformation(
-                    "Exported Bitwarden vault with response: \n{@bitwardenResponse}",
+                    "Exported Bitwarden vault to '{path}'",
+                    bitwardenExportResponse.Data?.Raw
+                );
+                logger.LogDebug(
+                    "Bitwarden export response: \n{@bitwardenResponse}",
                     bitwardenExportResponse
                 );
             }

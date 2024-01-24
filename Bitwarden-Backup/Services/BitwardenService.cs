@@ -184,7 +184,7 @@ namespace Bitwarden_Backup.Services
 
             var additionalCommand = string.Empty;
 
-            if (string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword))
+            if (!string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword))
             {
                 additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
             }
@@ -223,9 +223,8 @@ namespace Bitwarden_Backup.Services
                     Arguments = tempCommand.ToString(),
                     RedirectStandardOutput = true,
                     RedirectStandardInput = true,
-                    RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = false
+                    CreateNoWindow = true
                 },
             };
 
@@ -237,18 +236,9 @@ namespace Bitwarden_Backup.Services
                 }
             };
 
-            process.ErrorDataReceived += (sender, args) =>
-            {
-                if (!string.IsNullOrWhiteSpace(args.Data))
-                {
-                    error.AppendLine(args.Data);
-                }
-            };
-
             logger.LogDebug("Starting command '{command}'.", command);
             process.Start();
             process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
 
             var inputIndex = 0;
             var inputCount = inputs?.Count ?? 0;
@@ -277,33 +267,15 @@ namespace Bitwarden_Backup.Services
             logger.LogDebug("Closing process.");
             process.Close();
 
-            if (!processExited)
-            {
-                error.AppendLine("Process did not exit after 60s.");
-            }
-
-            var errorMessage = error.ToString();
-
-            if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
-                var bitwardenErrorResponse = new BitwardenResponse()
-                {
-                    Success = false,
-                    Message = errorMessage
-                };
-
-                logger.LogError(
-                    "Error occurred while running the '{command}': \n{@bitwardenResponse}",
-                    command,
-                    bitwardenErrorResponse
-                );
-                return bitwardenErrorResponse;
-            }
-
             var outputMessage = output.ToString();
             var bitwardenOutputResponse =
                 JsonConvert.DeserializeObject<BitwardenResponse>(outputMessage)
-                ?? new BitwardenResponse() { Success = true, Message = outputMessage };
+                ?? new BitwardenResponse() { Success = processExited, Message = outputMessage };
+
+            if (!processExited)
+            {
+                bitwardenOutputResponse.Message += "Process did not exit after 60s.";
+            }
 
             logger.LogDebug(
                 "Output while running the '{command}': \n{@bitwardenResponse}",
