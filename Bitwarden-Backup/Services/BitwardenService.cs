@@ -30,7 +30,7 @@ namespace Bitwarden_Backup.Services
                 configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
                 ?? new BitwardenCredentials();
 
-            // Set log in method to avoid reprompt if set in appsettings or enough credentials were provided
+            // Set log in method to avoid prompt if at least one required value is in appsettings
             bitwardenConfiguration.SetLogInMethod(bitwardenCredentials);
 
             if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
@@ -181,7 +181,16 @@ namespace Bitwarden_Backup.Services
             var bitwardenUnlockResponse = await RunBitwardenCommand(
                 $"unlock --response",
                 string.Empty,
-                null,
+                [
+                    new()
+                    {
+                        Prompt = Prompts.MasterPassword,
+                        ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
+                        Value = credential.MasterPassword,
+                        IsSecret = true,
+                        InputMask = null
+                    }
+                ],
                 cancellationToken
             );
 

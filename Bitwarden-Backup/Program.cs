@@ -43,6 +43,13 @@ namespace Bitwarden_Backup
                 var bitwardenConfiguration = await bitwardenService.GetBitwardenConfiguration(
                     cts.Token
                 );
+
+                if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
+                {
+                    logger.LogInformation("Cancelled export of Bitwarden vault.");
+                    return;
+                }
+
                 logger.LogInformation("Got bitwarden configuration.");
 
                 logger.LogDebug("Getting bitwarden credentials.");

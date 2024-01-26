@@ -15,7 +15,6 @@
 
     internal enum TwoFactorMethod
     {
-        Cancel = -2,
         None = -1,
         Authenticator = 0,
         Email = 1,

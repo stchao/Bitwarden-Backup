@@ -16,7 +16,7 @@
         {
             if (
                 bitwardenCredentials.ApiKeyCredential is not null
-                && bitwardenCredentials.ApiKeyCredential.HasNonEmptyValues()
+                && bitwardenCredentials.ApiKeyCredential.HasAtLeastOneRequiredValue()
             )
             {
                 LogInMethod = LogInMethod.ApiKey;
@@ -25,7 +25,7 @@
 
             if (
                 bitwardenCredentials.EmailPasswordCredential is not null
-                && bitwardenCredentials.EmailPasswordCredential.HasNonEmptyValues()
+                && bitwardenCredentials.EmailPasswordCredential.HasAtLeastOneRequiredValue()
             )
             {
                 LogInMethod = LogInMethod.EmailPw;

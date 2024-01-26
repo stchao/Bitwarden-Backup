@@ -20,17 +20,17 @@ namespace Bitwarden_Backup.Services
             CancellationToken cancellationToken = default
         )
         {
-            var hasValidCredential =
+            var hasRequiredValues =
                 (
                     bitwardenCredentials.ApiKeyCredential is not null
-                    && bitwardenCredentials.ApiKeyCredential.HasNonEmptyValues()
+                    && bitwardenCredentials.ApiKeyCredential.HasRequiredValues()
                 )
                 || (
                     bitwardenCredentials.EmailPasswordCredential is not null
-                    && bitwardenCredentials.EmailPasswordCredential.HasNonEmptyValues()
+                    && bitwardenCredentials.EmailPasswordCredential.HasRequiredValues()
                 );
 
-            if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasValidCredential)
+            if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasRequiredValues)
             {
                 throw new Exception(ErrorMessages.NoCredentials);
             }
@@ -45,14 +45,6 @@ namespace Bitwarden_Backup.Services
                     break;
                 default:
                     throw new NotImplementedException(ErrorMessages.InvalidLogInMethod);
-            }
-
-            if (
-                bitwardenCredentials.EmailPasswordCredential?.TwoFactorMethod
-                == TwoFactorMethod.Cancel
-            )
-            {
-                // Implement cancel
             }
 
             return bitwardenCredentials;
@@ -148,7 +140,6 @@ namespace Bitwarden_Backup.Services
                                 TwoFactorMethod.Email,
                                 TwoFactorMethod.YubiKey,
                                 TwoFactorMethod.None,
-                                TwoFactorMethod.Cancel,
                             ]
                         )
                         .UseConverter(
@@ -159,7 +150,6 @@ namespace Bitwarden_Backup.Services
                                     TwoFactorMethod.YubiKey => "YubiKey OTP Security Key",
                                     TwoFactorMethod.Email => "Email",
                                     TwoFactorMethod.None => "None",
-                                    TwoFactorMethod.Cancel => "Cancel",
                                     _
                                         => throw new NotImplementedException(
                                             ErrorMessages.InvalidTwoFactorMethod

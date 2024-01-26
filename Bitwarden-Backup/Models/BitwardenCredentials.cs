@@ -19,12 +19,18 @@
 
         public string TwoFactorCode { get; set; } = string.Empty;
 
-        public bool HasNonEmptyValues()
+        public bool HasRequiredValues()
         {
             return !string.IsNullOrWhiteSpace(Email)
                 && !string.IsNullOrWhiteSpace(MasterPassword)
-                && !string.IsNullOrWhiteSpace(TwoFactorCode)
-                && TwoFactorMethod != TwoFactorMethod.None;
+                && !string.IsNullOrWhiteSpace(TwoFactorCode);
+        }
+
+        public bool HasAtLeastOneRequiredValue()
+        {
+            return !string.IsNullOrWhiteSpace(Email)
+                || !string.IsNullOrWhiteSpace(MasterPassword)
+                || !string.IsNullOrWhiteSpace(TwoFactorCode);
         }
     }
 
@@ -36,11 +42,18 @@
 
         public string MasterPassword { get; set; } = string.Empty;
 
-        public bool HasNonEmptyValues()
+        public bool HasRequiredValues()
         {
             return !string.IsNullOrWhiteSpace(ClientId)
                 && !string.IsNullOrWhiteSpace(MasterPassword)
                 && !string.IsNullOrWhiteSpace(ClientSecret);
+        }
+
+        public bool HasAtLeastOneRequiredValue()
+        {
+            return !string.IsNullOrWhiteSpace(ClientId)
+                || !string.IsNullOrWhiteSpace(MasterPassword)
+                || !string.IsNullOrWhiteSpace(ClientSecret);
         }
     }
 }
