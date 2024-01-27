@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Text;
 using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
@@ -87,6 +88,7 @@ namespace Bitwarden_Backup.Services
                 new()
                 {
                     Prompt = Prompts.MasterPassword,
+                    Validator = SpectreConsoleExtension.StringLengthValidator,
                     ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
                     Value = credential.MasterPassword,
                     IsSecret = true,
@@ -185,6 +187,7 @@ namespace Bitwarden_Backup.Services
                     new()
                     {
                         Prompt = Prompts.MasterPassword,
+                        Validator = SpectreConsoleExtension.StringLengthValidator,
                         ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
                         Value = credential.MasterPassword,
                         IsSecret = true,
@@ -319,9 +322,10 @@ namespace Bitwarden_Backup.Services
                     inputIndex,
                     currentInput.Prompt
                 );
-                var userInput = await SpectreConsoleExtension.GetUserInputAsStringUsingConsole(
+                var userInput = await SpectreConsoleExtension.GetStringInputWithConsole(
                     currentInput.Value,
                     currentInput.Prompt,
+                    currentInput.Validator,
                     currentInput.ValidationResultErrorMessage,
                     currentInput.IsSecret,
                     currentInput.InputMask,

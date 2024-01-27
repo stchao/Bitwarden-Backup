@@ -1,12 +1,21 @@
-﻿using Spectre.Console;
+﻿using System.Text.RegularExpressions;
+using Bitwarden_Backup.Models;
+using Spectre.Console;
 
 namespace Bitwarden_Backup.Extensions
 {
-    internal static class SpectreConsoleExtension
+    internal static partial class SpectreConsoleExtension
     {
-        public static async Task<string> GetUserInputAsStringUsingConsole(
+        [GeneratedRegex(
+            "^\\w+([-+.']\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$",
+            RegexOptions.IgnoreCase
+        )]
+        private static partial Regex ValidEmailRegex();
+
+        public static async Task<string> GetStringInputWithConsole(
             string? initialValue,
             string prompt,
+            Func<string, string, ValidationResult> validator,
             string validationResultErrorMessage,
             bool isSecret = false,
             char? inputMask = null,
@@ -19,10 +28,7 @@ namespace Bitwarden_Backup.Extensions
             }
 
             var textPrompt = new TextPrompt<string>(prompt).Validate(
-                arg =>
-                    string.IsNullOrWhiteSpace(arg)
-                        ? ValidationResult.Error(validationResultErrorMessage)
-                        : ValidationResult.Success()
+                arg => validator(arg, validationResultErrorMessage)
             );
 
             if (isSecret)
@@ -31,6 +37,45 @@ namespace Bitwarden_Backup.Extensions
             }
 
             return await textPrompt.ShowAsync(AnsiConsole.Console, cancellationToken);
+        }
+
+        public static ValidationResult DefaultStringValidator(
+            string arg,
+            string validationResultErrorMessage = Texts.DefaultValidationResult
+        )
+        {
+            if (string.IsNullOrWhiteSpace(arg))
+            {
+                return ValidationResult.Error(validationResultErrorMessage);
+            }
+
+            return ValidationResult.Success();
+        }
+
+        public static ValidationResult StringLengthValidator(
+            string arg,
+            string validationResultErrorMessage = Texts.DefaultValidationResult
+        )
+        {
+            if (string.IsNullOrWhiteSpace(arg) || arg.Length < 12)
+            {
+                return ValidationResult.Error(validationResultErrorMessage);
+            }
+
+            return ValidationResult.Success();
+        }
+
+        public static ValidationResult EmailStringValidator(
+            string arg,
+            string validationResultErrorMessage = Texts.DefaultValidationResult
+        )
+        {
+            if (string.IsNullOrWhiteSpace(arg) || !ValidEmailRegex().IsMatch(arg))
+            {
+                return ValidationResult.Error(validationResultErrorMessage);
+            }
+
+            return ValidationResult.Success();
         }
     }
 }

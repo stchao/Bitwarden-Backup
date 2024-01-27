@@ -14,6 +14,7 @@
     internal static class Texts
     {
         internal const string MoreChoices = "[grey](Move up and down to reveal more choices)[/]";
+        internal const string DefaultValidationResult = "[red]Value cannot be empty or null.[/]";
     }
 
     internal static class ErrorMessages
@@ -30,9 +31,9 @@
         internal const string ClientSecretValidationResult =
             "[red]Client Secret cannot be empty or null.[/]";
         internal const string MasterPasswordValidationResult =
-            "[red]Client Id cannot be empty or null.[/]";
+            "[red]Master password must be at least 12 characters and cannot be empty or null.[/]";
         internal const string EmailValidationResult =
-            "[red]Email Address cannot be empty or null.[/]";
+            "[red]Email Address must be valid and cannot be empty or null.[/]";
         internal const string TwoFactorCodeValidationResult =
             "[red]Two factor code cannot be empty or null.[/]";
     }
