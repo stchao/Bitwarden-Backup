@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
@@ -386,10 +385,7 @@ namespace Bitwarden_Backup.Services
 
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException(
-                    $"The file '{bitwardenExecutableName}' is not in the app directory. "
-                        + $"Please download the latest version of Bitwarden CLI from https://bitwarden.com/help/cli/ and move the .exe file into the app directory."
-                );
+                throw new FileNotFoundException(ErrorMessages.BwExeNotFound);
             }
 
             return filePath;

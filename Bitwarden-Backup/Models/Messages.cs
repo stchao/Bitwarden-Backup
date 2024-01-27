@@ -19,6 +19,8 @@
 
     internal static class ErrorMessages
     {
+        internal const string BwExeNotFound =
+            "The Bitwarden cli native executable file is not in the app directory. Please refer to requirements section of the README.";
         internal const string AlreadyLoggedIn = "You are already logged in as";
         internal const string NoCredentials =
             "Interactive log in is disabled and there are no credential(s) in appsettings.json.";
