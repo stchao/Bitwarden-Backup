@@ -28,13 +28,13 @@ namespace Bitwarden_Backup.Extensions
                 fileName = defaultFileName;
             }
 
-            var tempFileName = $"{fileName}{fileNameSuffix}.{extension}";
+            var tempFileName = $"{fileName}{fileNameSuffix}{extension}";
             var tempPath = Path.Combine(directory, tempFileName);
             var counter = 0;
 
             while (File.Exists(tempPath))
             {
-                tempFileName = $"{fileName}{fileNameSuffix}_{counter}.{extension}";
+                tempFileName = $"{fileName}{fileNameSuffix}_{counter}{extension}";
                 tempPath = Path.Combine(directory, tempFileName);
                 counter++;
             }
