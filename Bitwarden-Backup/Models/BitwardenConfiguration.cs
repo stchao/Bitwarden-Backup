@@ -6,6 +6,25 @@
 
         public string Url { get; set; } = string.Empty;
 
+        public string UserLogInMethod
+        {
+            get => LogInMethod.ToString();
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return;
+                }
+
+                if (!Enum.TryParse(value, out LogInMethod tempLogInMethod))
+                {
+                    throw new FormatException($"{value} is not a valid value for LogInMethod.");
+                }
+
+                LogInMethod = tempLogInMethod;
+            }
+        }
+
         public LogInMethod LogInMethod { get; set; } = LogInMethod.None;
 
         public bool EnableInteractiveLogIn { get; set; } = true;

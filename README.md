@@ -30,12 +30,12 @@ These options can be configured by setting the values for the keys in the appset
 | `ExportFile:Format` | `json` | `encrypted_json` | The file format of the exported file. See [`Export Format`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `ExportFile:CustomExportPassword` | - | `custompw` | When `ExportFile:Format` is set to `encrypted_json` and this is set, the file will be encrypted with this password instead of the Bitwarden's account encryption key. |
 | `BitwardenConfiguration:Url` |`https://vault.bitwarden.com` | `https://your.bw.domain.com` | The Bitwarden server to connect to. |
-| `BitwardenConfiguration:LogInMethod` | `None` | `EmailPw` | The method to log in to your Bitwarden vault. See [`Log In Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
+| `BitwardenConfiguration:UserLogInMethod` | `None` | `EmailPw` | The method to log in to your Bitwarden vault. See [`Log In Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `BitwardenConfiguration:EnableInteractiveLogIn` | `true` | `false` | If you want to be prompted for any missing but required values from the appsettings.json file. |
 | `BitwardenConfiguration:ExecutablePath` | `Executing Directory` | `C:\Temp` | The path to the bw.exe file. |
 | `Credentials:EmailPasswordCredential:Email` | - | `email@example.com` | The email address for your Bitwarden vault. |
 | `Credentials:EmailPasswordCredential:MasterPassword` or `Credentials:APIKeyCredential:MasterPassword` | - | `bwpassword` | The master password for your Bitwarden vault. |
-| `Credentials:EmailPasswordCredential:TwoFactorMethod` | `None` | `Email` | The two factor method to unlock your Bitwarden vault. See [`Two Factor Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
+| `Credentials:EmailPasswordCredential:UserTwoFactorMethod` | `None` | `Email` | The two factor method to unlock your Bitwarden vault. See [`Two Factor Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `Credentials:EmailPasswordCredential:TwoFactorCode` | - | `999999` | The two factor code corresponding to the two factor method. |
 | `Credentials:APIKeyCredential:ClientId` | - | `user.clientId` | A value unique to your account. See [`Personal API Key`](https://bitwarden.com/help/personal-api-key/) for how to obtain it. |
 | `Credentials:APIKeyCredential:ClientSecret` | - | `clientSecret` | A unique value that can be rotated. See [`Personal API Key`](https://bitwarden.com/help/personal-api-key/) for how to obtain it. |

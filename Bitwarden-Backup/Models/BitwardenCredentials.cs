@@ -15,6 +15,25 @@
 
         public string MasterPassword { get; set; } = string.Empty;
 
+        public string UserTwoFactorMethod
+        {
+            get => TwoFactorMethod.ToString();
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return;
+                }
+
+                if (!Enum.TryParse(value, out TwoFactorMethod tempTwoFactorMethod))
+                {
+                    throw new FormatException($"{value} is not a valid value for TwoFactorMethod.");
+                }
+
+                TwoFactorMethod = tempTwoFactorMethod;
+            }
+        }
+
         public TwoFactorMethod TwoFactorMethod { get; set; } = TwoFactorMethod.None;
 
         public string TwoFactorCode { get; set; } = string.Empty;
