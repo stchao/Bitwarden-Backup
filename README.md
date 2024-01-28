@@ -29,7 +29,7 @@ These options can be configured by setting the values for the keys in the appset
 | `ExportFile:DateInFileNameFormat` | - | `yyyyMMdd` | When set, a date string based on the format is appended to the exported file name. See [`Format Specifier`](https://learn.microsoft.com/en-us/dotnet/standard/base-types/custom-date-and-time-format-strings). |
 | `ExportFile:Format` | `json` | `encrypted_json` | The file format of the exported file. See [`Export Format`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `ExportFile:CustomExportPassword` | - | `custompw` | When `ExportFile:Format` is set to `encrypted_json` and this is set, the file will be encrypted with this password instead of the Bitwarden's account encryption key. |
-| `BitwardenConfiguration:Url` |`https://vault.bitwarden.com` | `https://your.bw.domain.com` | The Bitwarden server to connect to. |
+| `BitwardenConfiguration:Url` | - | `https://your.bw.domain.com` | The Bitwarden server to connect to. |
 | `BitwardenConfiguration:UserLogInMethod` | `None` | `EmailPw` | The method to log in to your Bitwarden vault. See [`Log In Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `BitwardenConfiguration:EnableInteractiveLogIn` | `true` | `false` | If you want to be prompted for any missing but required values from the appsettings.json file. |
 | `BitwardenConfiguration:ExecutablePath` | `Executing Directory` | `C:\Temp` | The path to the bw.exe file. |
