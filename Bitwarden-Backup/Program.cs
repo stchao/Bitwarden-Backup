@@ -39,7 +39,7 @@ namespace Bitwarden_Backup
                 bitwardenService = serviceProvider.GetRequiredService<IBitwardenService>();
                 logger.LogInformation("Got required service(s).");
 
-                logger.LogDebug("Getting bitwarden configuration.");
+                logger.LogDebug("Getting Bitwarden configuration.");
                 var bitwardenConfiguration = await bitwardenService.GetBitwardenConfiguration(
                     cts.Token
                 );
@@ -50,14 +50,29 @@ namespace Bitwarden_Backup
                     return;
                 }
 
-                logger.LogInformation("Got bitwarden configuration.");
+                logger.LogInformation("Got Bitwarden configuration.");
 
-                logger.LogDebug("Getting bitwarden credentials.");
+                logger.LogDebug("Setting Bitwarden CLI's server.");
+                var bitwardenSetBitwardenServerResponse = await bitwardenService.SetBitwardenServer(
+                    cts.Token
+                );
+
+                if (!bitwardenSetBitwardenServerResponse.Success)
+                {
+                    logger.LogError(
+                        "Failed to set Bitwarden CLI's server. \nResponse: {@bitwardenResponse}",
+                        bitwardenSetBitwardenServerResponse
+                    );
+                    return;
+                }
+                logger.LogInformation("Set Bitwarden CLI's server (if provided).");
+
+                logger.LogDebug("Getting Bitwarden credentials.");
                 var bitwardenCredentials = await credentialService.GetBitwardenCredential(
                     bitwardenConfiguration,
                     cts.Token
                 );
-                logger.LogInformation("Got bitwarden credentials.");
+                logger.LogInformation("Got Bitwarden credentials.");
 
                 logger.LogDebug("Logging in to Bitwarden vault.");
                 var bitwardenLogInResponse = bitwardenConfiguration.LogInMethod switch

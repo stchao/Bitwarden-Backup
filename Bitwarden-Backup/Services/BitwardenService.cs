@@ -61,6 +61,21 @@ namespace Bitwarden_Backup.Services
             return bitwardenConfiguration;
         }
 
+        public async Task<BitwardenResponse> SetBitwardenServer(CancellationToken cancellationToken)
+        {
+            if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
+            {
+                logger.LogDebug("Saving Bitwarden Server config.");
+            }
+
+            return await RunBitwardenCommand(
+                $"config server {bitwardenConfiguration.Url} --response",
+                string.Empty,
+                null,
+                cancellationToken
+            );
+        }
+
         public async Task<BitwardenResponse> LogIn(
             EmailPasswordCredential credential,
             CancellationToken cancellationToken
@@ -68,19 +83,6 @@ namespace Bitwarden_Backup.Services
         {
             logger.LogDebug("Sanity log out.");
             await LogOut(cancellationToken);
-
-            // Logic for when user selects none or cancels
-
-            if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
-            {
-                logger.LogDebug("Saving Bitwarden Server config.");
-                await RunBitwardenCommand(
-                    $"config server {bitwardenConfiguration.Url}",
-                    string.Empty,
-                    null,
-                    cancellationToken
-                );
-            }
 
             var inputs = new List<StandardInput>()
             {
@@ -140,8 +142,6 @@ namespace Bitwarden_Backup.Services
         {
             logger.LogDebug("Sanity log out.");
             await LogOut(cancellationToken);
-
-            // Logic for when user selects none or cancels
 
             Environment.SetEnvironmentVariable("BW_CLIENTID", credential.ClientId);
             Environment.SetEnvironmentVariable("BW_CLIENTSECRET", credential.ClientSecret);
@@ -399,6 +399,10 @@ namespace Bitwarden_Backup.Services
     internal interface IBitwardenService
     {
         public Task<BitwardenConfiguration> GetBitwardenConfiguration(
+            CancellationToken cancellationToken = default
+        );
+
+        public Task<BitwardenResponse> SetBitwardenServer(
             CancellationToken cancellationToken = default
         );
 
