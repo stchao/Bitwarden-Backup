@@ -21,9 +21,8 @@ namespace Bitwarden_Backup.Extensions
             services
                 .AddSingleton<IConfiguration>(configuration)
                 .AddLogging(configure => configure.AddSerilog())
-                .AddScoped<IBitwardenService, BitwardenService>()
-                .AddScoped<ICredentialService, CredentialService>()
-                .AddHttpClient();
+                .AddSingleton<IBitwardenService, BitwardenService>()
+                .AddSingleton<ICredentialService, CredentialService>();
 
             return services;
         }

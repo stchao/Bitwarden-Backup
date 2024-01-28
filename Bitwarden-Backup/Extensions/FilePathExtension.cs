@@ -1,56 +1,45 @@
-﻿namespace Bitwarden_Backup.Extensions
+﻿using Bitwarden_Backup.Models;
+
+namespace Bitwarden_Backup.Extensions
 {
     internal static class FilePathExtension
     {
-        internal static string GetAvailableFullFilePath(
-            string directoryPath,
-            string fileName,
+        internal static string GetFilePath(
+            string path,
+            ExportFormat exportFormat,
+            string defaultFileName = "filename",
             string dateFormat = ""
         )
         {
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            var directory = Path.GetDirectoryName(path) ?? string.Empty;
             var fileNameSuffix = string.IsNullOrWhiteSpace(dateFormat)
                 ? string.Empty
                 : $"_{DateTime.Now.ToString(dateFormat)}";
-            var tempFileName = $"{fileNameWithoutExtension}{fileNameSuffix}.json";
-            var tempFullPath = Path.Combine(directoryPath, tempFileName);
-
-            if (!string.IsNullOrWhiteSpace(fileName) && !File.Exists(tempFullPath))
+            var extension = exportFormat switch
             {
-                return tempFullPath;
+                ExportFormat.json or ExportFormat.encrypted_json => ".json",
+                ExportFormat.csv => ".csv",
+                _ => ".txt",
+            };
+
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = defaultFileName;
             }
 
-            return GetNextAvailableFullFilePath(
-                directoryPath,
-                fileNameWithoutExtension,
-                dateFormat
-            );
-        }
-
-        internal static string GetNextAvailableFullFilePath(
-            string directoryPath,
-            string baseFileName,
-            string dateFormat = ""
-        )
-        {
-            var tempFileName = string.IsNullOrWhiteSpace(dateFormat)
-                ? $"{baseFileName}_{DateTime.Now.ToString(dateFormat)}"
-                : baseFileName;
-            var tempFullFilePath = Path.Combine(directoryPath, tempFileName);
+            var tempFileName = $"{fileName}{fileNameSuffix}.{extension}";
+            var tempPath = Path.Combine(directory, tempFileName);
             var counter = 0;
 
-            while (File.Exists(tempFullFilePath))
+            while (File.Exists(tempPath))
             {
-                tempFullFilePath = Path.Combine(directoryPath, $"{tempFileName}_{counter}.json");
+                tempFileName = $"{fileName}{fileNameSuffix}_{counter}.{extension}";
+                tempPath = Path.Combine(directory, tempFileName);
                 counter++;
-
-                if (counter % 10 == 0)
-                {
-                    tempFileName = $"{tempFileName}_{Guid.NewGuid().ToString()[..8]}";
-                }
             }
 
-            return tempFullFilePath;
+            return tempPath;
         }
     }
 }

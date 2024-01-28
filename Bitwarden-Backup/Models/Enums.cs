@@ -3,7 +3,8 @@
     internal enum ExportFormat
     {
         json,
-        encrypted_json
+        encrypted_json,
+        csv
     }
 
     internal enum LogInMethod

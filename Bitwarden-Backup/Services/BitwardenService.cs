@@ -231,18 +231,22 @@ namespace Bitwarden_Backup.Services
                 };
             }
 
-            var availableFullFilePath = FilePathExtension.GetAvailableFullFilePath(
-                exportFileProperty.Directory,
-                exportFileProperty.Name,
+            var filePath = FilePathExtension.GetFilePath(
+                exportFileProperty.Path,
+                exportFileProperty.ExportFormat,
+                "bw_export",
                 exportFileProperty.DateInFileNameFormat
             );
 
             var command =
-                $"export --session \"{sessionKey}\" --format {exportFileProperty.Format} --output {availableFullFilePath} --response";
+                $"export --session \"{sessionKey}\" --format {exportFileProperty.ExportFormat} --output {filePath} --response";
 
             var additionalCommand = string.Empty;
 
-            if (!string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword))
+            if (
+                !string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword)
+                && exportFileProperty.ExportFormat.Equals(ExportFormat.encrypted_json)
+            )
             {
                 additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
             }

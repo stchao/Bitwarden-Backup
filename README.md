@@ -7,7 +7,7 @@ A simple c# console app that integrates with the Bitwarden CLI (Command Line Int
 - .NET 8.0 SDK
 
 ## Installation
-1. Clone `Bitwarden-Backup` repository or download the corresponding release file.
+1. Clone `Bitwarden-Backup` repository and build it, or download the corresponding release file.
 1. Make a copy of the `appsettings-example.json` file and name it `appsettings.json`.
     - The appsettings can be left as is and will run prompting you for all the needed values.
 1. Download and install `.NET 8.0 SDK` (See [`Bitwarden CLI Download`](https://bitwarden.com/help/cli/)).
@@ -25,10 +25,9 @@ These options can be configured by setting the values for the keys in the appset
 | `WriteTo:Args:retainedFileCountLimit` | `31` | `null` | The number of files to retain. |
 | `WriteTo:Args:shared` | `false` | `true` | By default, only one process may write to a log file at a given time. Setting this allows multi-process shared log files. |
 | `WriteTo:Args:outputTemplate` | `{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}` | `{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u5}] {Message:lj}{NewLine}{Exception}` | The format for each log entry. See [`Serilog Formatting Output`](https://github.com/serilog/serilog/wiki/Formatting-Output). |
-| `ExportFile:Directory` | `Executing Directory` | `C:\Temp` | The directory to place the exported file. |
-| `ExportFile:Name` | `bw_export` | `bw_export` | The name of the exported file. |
+| `ExportFile:Name` | `bw_export` | `C:\Temp\bw_export` | The path to place the exported file with the file name. |
 | `ExportFile:DateInFileNameFormat` | - | `yyyyMMdd` | When set, a date string based on the format is appended to the exported file name. See [`Format Specifier`](https://learn.microsoft.com/en-us/dotnet/standard/base-types/custom-date-and-time-format-strings). |
-| `ExportFile:Format` | `json` or `encrypted_json` | `json` | `encrypted_json` | The file format of the exported file. See [`Export Format`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
+| `ExportFile:Format` | `json` | `encrypted_json` | The file format of the exported file. See [`Export Format`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `ExportFile:CustomExportPassword` | - | `custompw` | When `ExportFile:Format` is set to `encrypted_json` and this is set, the file will be encrypted with this password instead of the Bitwarden's account encryption key. |
 | `BitwardenConfiguration:Url` |`https://vault.bitwarden.com` | `https://your.bw.domain.com` | The Bitwarden server to connect to. |
 | `BitwardenConfiguration:LogInMethod` | `None` | `EmailPw` | The method to log in to your Bitwarden vault. See [`Log In Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
