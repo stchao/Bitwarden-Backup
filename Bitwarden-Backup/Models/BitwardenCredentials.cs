@@ -38,6 +38,8 @@
 
         public string TwoFactorCode { get; set; } = string.Empty;
 
+        public string ClientSecret { get; set; } = string.Empty;
+
         public bool HasRequiredValues()
         {
             return !string.IsNullOrWhiteSpace(Email)

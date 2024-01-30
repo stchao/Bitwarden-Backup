@@ -84,6 +84,9 @@ namespace Bitwarden_Backup.Services
             logger.LogDebug("Sanity log out.");
             await LogOut(cancellationToken);
 
+            // Set client secret regardless of value in case additional auth is required
+            Environment.SetEnvironmentVariable("BW_CLIENTSECRET", credential.ClientSecret);
+
             var inputs = new List<StandardInput>()
             {
                 new()
@@ -125,6 +128,8 @@ namespace Bitwarden_Backup.Services
                 inputs,
                 cancellationToken
             );
+
+            Environment.SetEnvironmentVariable("BW_CLIENTSECRET", null);
 
             if (bitwardenLogInResponse.Success && bitwardenLogInResponse.Data is not null)
             {

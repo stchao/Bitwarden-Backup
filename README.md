@@ -38,4 +38,6 @@ These options can be configured by setting the values for the keys in the appset
 | `Credentials:EmailPasswordCredential:UserTwoFactorMethod` | `None` | `Email` | The two factor method to unlock your Bitwarden vault. See [`Two Factor Method`](https://github.com/stchao/Bitwarden-Backup/blob/main/Bitwarden-Backup/Models/Enums.cs) for all options. |
 | `Credentials:EmailPasswordCredential:TwoFactorCode` | - | `999999` | The two factor code corresponding to the two factor method. |
 | `Credentials:APIKeyCredential:ClientId` | - | `user.clientId` | A value unique to your account. See [`Personal API Key`](https://bitwarden.com/help/personal-api-key/) for how to obtain it. |
-| `Credentials:APIKeyCredential:ClientSecret` | - | `clientSecret` | A unique value that can be rotated. See [`Personal API Key`](https://bitwarden.com/help/personal-api-key/) for how to obtain it. |
+| `Credentials:APIKeyCredential:ClientSecret` or `Credentials:EmailPasswordCredential:ClientSecret`* | - | `clientSecret` | A unique value that can be rotated. See [`Personal API Key`](https://bitwarden.com/help/personal-api-key/) for how to obtain it. |
+
+\* For this `ClientSecret` key under the key `EmailPasswordCredential`, it will only be needed when Bitwarden CLI prompts for additional authentication. See [`CLI Authentication Challenges`](https://bitwarden.com/help/cli-auth-challenges/).
