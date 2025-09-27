@@ -1,6 +1,6 @@
 ﻿namespace Bitwarden_Backup.Models
 {
-    internal class ExportFileProperty
+    public class ExportFileProperty
     {
         public static string Key = "ExportFile";
 

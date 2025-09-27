@@ -4,7 +4,7 @@ using Spectre.Console;
 
 namespace Bitwarden_Backup.Extensions
 {
-    internal static partial class SpectreConsoleExtension
+    public static partial class SpectreConsoleExtension
     {
         [GeneratedRegex(
             "^\\w+([-+.']\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$",
@@ -15,8 +15,8 @@ namespace Bitwarden_Backup.Extensions
         public static async Task<string> GetStringInputWithConsole(
             string? initialValue,
             string prompt,
-            Func<string, string, ValidationResult> validator,
-            string validationResultErrorMessage,
+            Func<ValidatorParams, ValidationResult> validator,
+            ValidatorParams validatorParams,
             bool isSecret = false,
             char? inputMask = null,
             CancellationToken cancellationToken = default
@@ -27,9 +27,11 @@ namespace Bitwarden_Backup.Extensions
                 return initialValue;
             }
 
-            var textPrompt = new TextPrompt<string>(prompt).Validate(
-                arg => validator(arg, validationResultErrorMessage)
-            );
+            var textPrompt = new TextPrompt<string>(prompt).Validate(arg =>
+            {
+                validatorParams.Arg = arg;
+                return validator(validatorParams);
+            });
 
             if (isSecret)
             {
@@ -39,40 +41,44 @@ namespace Bitwarden_Backup.Extensions
             return await textPrompt.ShowAsync(AnsiConsole.Console, cancellationToken);
         }
 
-        public static ValidationResult DefaultStringValidator(
-            string arg,
-            string validationResultErrorMessage = Texts.DefaultValidationResult
-        )
+        public static ValidationResult DefaultStringValidator(ValidatorParams validatorParams)
         {
-            if (string.IsNullOrWhiteSpace(arg))
+            if (validatorParams.IsArgNullOrWhiteSpace)
             {
-                return ValidationResult.Error(validationResultErrorMessage);
+                return ValidationResult.Error(validatorParams.ValidationResultErrorMessage);
             }
 
             return ValidationResult.Success();
         }
 
-        public static ValidationResult StringLengthValidator(
-            string arg,
-            string validationResultErrorMessage = Texts.DefaultValidationResult
-        )
+        public static ValidationResult StringInHashValidator(ValidatorParams validatorParams)
         {
-            if (string.IsNullOrWhiteSpace(arg) || arg.Length < 12)
+            if (validatorParams.IsArgNullOrWhiteSpace || !validatorParams.IsArgInValidHash)
             {
-                return ValidationResult.Error(validationResultErrorMessage);
+                return ValidationResult.Error(validatorParams.ValidationResultErrorMessage);
             }
 
             return ValidationResult.Success();
         }
 
-        public static ValidationResult EmailStringValidator(
-            string arg,
-            string validationResultErrorMessage = Texts.DefaultValidationResult
-        )
+        public static ValidationResult StringLengthValidator(ValidatorParams validatorParams)
         {
-            if (string.IsNullOrWhiteSpace(arg) || !ValidEmailRegex().IsMatch(arg))
+            if (validatorParams.IsArgNullOrWhiteSpace || !validatorParams.IsArgMinLength)
             {
-                return ValidationResult.Error(validationResultErrorMessage);
+                return ValidationResult.Error(validatorParams.ValidationResultErrorMessage);
+            }
+
+            return ValidationResult.Success();
+        }
+
+        public static ValidationResult EmailStringValidator(ValidatorParams validatorParams)
+        {
+            if (
+                validatorParams.IsArgNullOrWhiteSpace
+                || !ValidEmailRegex().IsMatch(validatorParams.Arg)
+            )
+            {
+                return ValidationResult.Error(validatorParams.ValidationResultErrorMessage);
             }
 
             return ValidationResult.Success();

@@ -1,46 +1,46 @@
 ﻿using Bitwarden_Backup.Extensions;
 using Bitwarden_Backup.Models;
 using Bitwarden_Backup.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Bitwarden_Backup
 {
-    internal class Program
+    public class Program
     {
         static async Task Main()
         {
-            var serviceProvider = new ServiceCollection()
-                .ConfigureLogAndServices()
-                .BuildServiceProvider();
-            var cts = new CancellationTokenSource();
-
+            CancellationTokenSource cts = new();
             IBitwardenService? bitwardenService = null;
-            var logger = serviceProvider.GetService<ILogger<Program>>();
-
-            if (logger is null)
-            {
-                Console.WriteLine("Failed to get and/or initialize the logger.");
-                return;
-            }
+            ILogger<Program>? logger = null;
 
             try
             {
+                ServiceProvider? serviceProvider = null;
+                ICredentialService? credentialService = null;
+                BitwardenConfiguration? bitwardenConfiguration = null;
+
                 Console.CancelKeyPress += (sender, args) =>
                 {
                     cts.Cancel();
                     args.Cancel = true;
                 };
 
-                logger.LogDebug("Getting required service(s).");
-                var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-                var credentialService = serviceProvider.GetRequiredService<ICredentialService>();
+                serviceProvider = new ServiceCollection()
+                    .ConfigureLogAndServices()
+                    .BuildServiceProvider();
+
+                logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+                credentialService = serviceProvider.GetRequiredService<ICredentialService>();
                 bitwardenService = serviceProvider.GetRequiredService<IBitwardenService>();
                 logger.LogInformation("Got required service(s).");
 
-                logger.LogDebug("Getting Bitwarden configuration.");
-                var bitwardenConfiguration = await bitwardenService.GetBitwardenConfiguration(
+                if (logger is null || bitwardenService is null)
+                {
+                    return;
+                }
+
+                bitwardenConfiguration = await bitwardenService.GetBitwardenConfiguration(
                     cts.Token
                 );
 
@@ -52,7 +52,6 @@ namespace Bitwarden_Backup
 
                 logger.LogInformation("Got Bitwarden configuration.");
 
-                logger.LogDebug("Setting Bitwarden CLI's server.");
                 var bitwardenSetBitwardenServerResponse = await bitwardenService.SetBitwardenServer(
                     cts.Token
                 );
@@ -65,50 +64,83 @@ namespace Bitwarden_Backup
                     );
                     return;
                 }
-                logger.LogInformation("Set Bitwarden CLI's server (if provided).");
 
-                logger.LogDebug("Getting Bitwarden credentials.");
-                var bitwardenCredentials = await credentialService.GetBitwardenCredential(
-                    bitwardenConfiguration,
-                    cts.Token
-                );
-                logger.LogInformation("Got Bitwarden credentials.");
+                var attempts = 1;
+                var validResponses = new HashSet<string>() { "Y", "N" };
 
-                logger.LogDebug("Logging in to Bitwarden vault.");
-                var bitwardenLogInResponse = bitwardenConfiguration.LogInMethod switch
+                do
                 {
-                    LogInMethod.ApiKey
-                        => await bitwardenService.LogIn(
-                            bitwardenCredentials.ApiKeyCredential!,
-                            cts.Token
-                        ),
-                    LogInMethod.EmailPw
-                        => await bitwardenService.LogIn(
-                            bitwardenCredentials.EmailPasswordCredential!,
-                            cts.Token
-                        ),
-                    _
-                        => new BitwardenResponse()
+                    logger.LogDebug("Getting credential(s).");
+                    var bitwardenCredentials = await credentialService.GetBitwardenCredential(
+                        bitwardenConfiguration,
+                        cts.Token
+                    );
+                    logger.LogInformation("Got credential(s).");
+
+                    logger.LogDebug("Logging in to Bitwarden vault.");
+                    var bitwardenLogInResponse = bitwardenConfiguration.LogInMethod switch
+                    {
+                        LogInMethod.ApiKey
+                            => await bitwardenService.LogIn(
+                                bitwardenCredentials.ApiKeyCredential!,
+                                cts.Token
+                            ),
+                        LogInMethod.EmailPw
+                            => await bitwardenService.LogIn(
+                                bitwardenCredentials.EmailPasswordCredential!,
+                                cts.Token
+                            ),
+                        _
+                            => new BitwardenResponse()
+                            {
+                                Success = false,
+                                Message = ErrorMessages.InvalidLogInMethod
+                            }
+                    };
+
+                    if (!bitwardenLogInResponse.Success)
+                    {
+                        logger.LogError(
+                            "Failed to log in to Bitwarden. \nResponse: {@bitwardenResponse}",
+                            bitwardenLogInResponse
+                        );
+
+                        Console.WriteLine(bitwardenLogInResponse.Message);
+
+                        var continueResponse =
+                            attempts > 2
+                                ? "N"
+                                : await SpectreConsoleExtension.GetStringInputWithConsole(
+                                    string.Empty,
+                                    Prompts.Retry,
+                                    SpectreConsoleExtension.StringInHashValidator,
+                                    new ValidatorParams
+                                    {
+                                        ValidationResultErrorMessage =
+                                            ErrorMessages.YNValidationResult,
+                                        ValidArgsHash = validResponses
+                                    },
+                                    false,
+                                    null,
+                                    cts.Token
+                                );
+
+                        if (continueResponse == "N")
                         {
-                            Success = false,
-                            Message = ErrorMessages.InvalidLogInMethod
+                            return;
                         }
-                };
 
-                if (!bitwardenLogInResponse.Success)
-                {
-                    logger.LogError(
-                        "Failed to log in to Bitwarden. \nResponse: {@bitwardenResponse}",
+                        continue;
+                    }
+
+                    attempts = 4;
+                    logger.LogInformation("Logged in to Bitwarden vault.");
+                    logger.LogDebug(
+                        "Bitwarden log in response: \n{@bitwardenResponse}",
                         bitwardenLogInResponse
                     );
-                    return;
-                }
+                } while (attempts++ < 3);
 
-                logger.LogInformation("Logged in to Bitwarden vault.");
-                logger.LogDebug(
-                    "Bitwarden log in response: \n{@bitwardenResponse}",
-                    bitwardenLogInResponse
-                );
                 logger.LogDebug("Exporting Bitwarden vault.");
 
                 var bitwardenExportResponse = await bitwardenService.ExportVault(cts.Token);
@@ -132,21 +164,21 @@ namespace Bitwarden_Backup
             }
             catch (TaskCanceledException)
             {
-                logger.LogInformation("Cancelled export of Bitwarden vault.");
+                logger?.LogInformation("Cancelled export of Bitwarden vault.");
             }
             catch (InvalidOperationException ex)
             {
-                logger.LogError(ex, "Failed to get the required service(s).");
+                logger?.LogError(ex, "Failed to get the required service(s).");
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to export Bitwarden vault.");
+                logger?.LogError(ex, "Failed to export Bitwarden vault.");
             }
             finally
             {
                 cts.Dispose();
                 await (bitwardenService?.LogOut() ?? Task.CompletedTask);
-                logger.LogInformation("Logged out and exiting program.\n");
+                logger?.LogInformation("Logged out and exiting program.\n");
             }
         }
     }

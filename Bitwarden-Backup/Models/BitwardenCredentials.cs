@@ -1,6 +1,6 @@
 ﻿namespace Bitwarden_Backup.Models
 {
-    internal class BitwardenCredentials
+    public class BitwardenCredentials
     {
         public static string Key = "Credentials";
 
@@ -9,7 +9,7 @@
         public ApiKeyCredential? ApiKeyCredential { get; set; }
     }
 
-    internal class EmailPasswordCredential
+    public class EmailPasswordCredential
     {
         public string Email { get; set; } = string.Empty;
 
@@ -55,7 +55,7 @@
         }
     }
 
-    internal class ApiKeyCredential
+    public class ApiKeyCredential
     {
         public string ClientId { get; set; } = string.Empty;
 

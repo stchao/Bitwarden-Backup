@@ -1,20 +1,20 @@
 ﻿namespace Bitwarden_Backup.Models
 {
-    internal enum ExportFormat
+    public enum ExportFormat
     {
         json,
         encrypted_json,
         csv
     }
 
-    internal enum LogInMethod
+    public enum LogInMethod
     {
         None = 0,
         ApiKey,
         EmailPw
     }
 
-    internal enum TwoFactorMethod
+    public enum TwoFactorMethod
     {
         None = -1,
         Authenticator = 0,

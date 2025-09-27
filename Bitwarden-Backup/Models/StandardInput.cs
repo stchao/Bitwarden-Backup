@@ -3,16 +3,14 @@ using Spectre.Console;
 
 namespace Bitwarden_Backup.Models
 {
-    internal class StandardInput
+    public class StandardInput
     {
         public string Prompt { get; set; } = string.Empty;
 
-        public Func<string, string, ValidationResult> Validator { get; set; } =
+        public Func<ValidatorParams, ValidationResult> Validator { get; set; } =
             SpectreConsoleExtension.DefaultStringValidator;
 
-        public string ValidationResultErrorMessage { get; set; } = string.Empty;
-
-        public string Value { get; set; } = string.Empty;
+        public ValidatorParams ValidatorParams { get; set; } = new ValidatorParams();
 
         public bool IsSecret { get; set; }
 

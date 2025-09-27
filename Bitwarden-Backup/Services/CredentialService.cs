@@ -6,12 +6,10 @@ using Spectre.Console;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class CredentialService(
-        ILogger<CredentialService> logger,
-        IConfiguration configuration
-    ) : ICredentialService
+    public class CredentialService(ILogger<CredentialService> logger, IConfiguration configuration)
+        : ICredentialService
     {
-        private readonly BitwardenCredentials bitwardenCredentials =
+        private readonly BitwardenCredentials _bitwardenCredentials =
             configuration.GetSection(BitwardenCredentials.Key).Get<BitwardenCredentials>()
             ?? new BitwardenCredentials();
 
@@ -22,12 +20,12 @@ namespace Bitwarden_Backup.Services
         {
             var hasRequiredValues =
                 (
-                    bitwardenCredentials.ApiKeyCredential is not null
-                    && bitwardenCredentials.ApiKeyCredential.HasRequiredValues()
+                    _bitwardenCredentials.ApiKeyCredential is not null
+                    && _bitwardenCredentials.ApiKeyCredential.HasRequiredValues()
                 )
                 || (
-                    bitwardenCredentials.EmailPasswordCredential is not null
-                    && bitwardenCredentials.EmailPasswordCredential.HasRequiredValues()
+                    _bitwardenCredentials.EmailPasswordCredential is not null
+                    && _bitwardenCredentials.EmailPasswordCredential.HasRequiredValues()
                 );
 
             if (!bitwardenConfiguration.EnableInteractiveLogIn && !hasRequiredValues)
@@ -35,13 +33,18 @@ namespace Bitwarden_Backup.Services
                 throw new Exception(ErrorMessages.NoCredentials);
             }
 
+            var bitwardenCredentials = new BitwardenCredentials();
+
             switch (bitwardenConfiguration.LogInMethod)
             {
                 case LogInMethod.ApiKey:
-                    await GetApiKeyCredentials(cancellationToken);
+                    bitwardenCredentials.ApiKeyCredential = await GetApiKeyCredentials(
+                        cancellationToken
+                    );
                     break;
                 case LogInMethod.EmailPw:
-                    await GetEmailPasswordCredentials(cancellationToken);
+                    bitwardenCredentials.EmailPasswordCredential =
+                        await GetEmailPasswordCredentials(cancellationToken);
                     break;
                 default:
                     throw new NotImplementedException(ErrorMessages.InvalidLogInMethod);
@@ -50,18 +53,28 @@ namespace Bitwarden_Backup.Services
             return bitwardenCredentials;
         }
 
-        private async Task GetApiKeyCredentials(CancellationToken cancellationToken = default)
+        private async Task<ApiKeyCredential> GetApiKeyCredentials(
+            CancellationToken cancellationToken = default
+        )
         {
-            bitwardenCredentials.ApiKeyCredential ??= new ApiKeyCredential();
+            _bitwardenCredentials.ApiKeyCredential ??= new ApiKeyCredential();
 
-            var apiKeyCredential = bitwardenCredentials.ApiKeyCredential;
+            var apiKeyCredential = new ApiKeyCredential
+            {
+                ClientId = _bitwardenCredentials.ApiKeyCredential.ClientId,
+                ClientSecret = _bitwardenCredentials.ApiKeyCredential.ClientSecret,
+                MasterPassword = _bitwardenCredentials.ApiKeyCredential.MasterPassword
+            };
 
             logger.LogDebug("Getting client id for api key credentials using Spectre.Console.");
             apiKeyCredential.ClientId = await SpectreConsoleExtension.GetStringInputWithConsole(
                 apiKeyCredential.ClientId,
                 Prompts.ClientId,
                 SpectreConsoleExtension.DefaultStringValidator,
-                ErrorMessages.ClientIdValidationResult,
+                new ValidatorParams
+                {
+                    ValidationResultErrorMessage = ErrorMessages.ClientIdValidationResult
+                },
                 false,
                 null,
                 cancellationToken
@@ -72,7 +85,10 @@ namespace Bitwarden_Backup.Services
                 apiKeyCredential.ClientSecret,
                 Prompts.ClientSecret,
                 SpectreConsoleExtension.DefaultStringValidator,
-                ErrorMessages.ClientSecretValidationResult,
+                new ValidatorParams
+                {
+                    ValidationResultErrorMessage = ErrorMessages.ClientSecretValidationResult
+                },
                 false,
                 null,
                 cancellationToken
@@ -86,18 +102,36 @@ namespace Bitwarden_Backup.Services
                     apiKeyCredential.MasterPassword,
                     Prompts.MasterPassword,
                     SpectreConsoleExtension.StringLengthValidator,
-                    ErrorMessages.MasterPasswordValidationResult,
+                    new ValidatorParams
+                    {
+                        ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
+                        MinLength = 12
+                    },
                     true,
                     null,
                     cancellationToken
                 );
+
+            return apiKeyCredential;
         }
 
-        private async Task GetEmailPasswordCredentials(CancellationToken cancellationToken)
+        private async Task<EmailPasswordCredential> GetEmailPasswordCredentials(
+            CancellationToken cancellationToken
+        )
         {
-            bitwardenCredentials.EmailPasswordCredential ??= new EmailPasswordCredential();
+            _bitwardenCredentials.EmailPasswordCredential ??= new EmailPasswordCredential();
 
-            var emailPasswordCredential = bitwardenCredentials.EmailPasswordCredential;
+            var emailPasswordCredential = new EmailPasswordCredential()
+            {
+                Email = _bitwardenCredentials.EmailPasswordCredential.Email,
+                MasterPassword = _bitwardenCredentials.EmailPasswordCredential.MasterPassword,
+                TwoFactorMethod = _bitwardenCredentials.EmailPasswordCredential.TwoFactorMethod,
+                TwoFactorCode = _bitwardenCredentials.EmailPasswordCredential.TwoFactorCode,
+                ClientSecret = _bitwardenCredentials.EmailPasswordCredential.ClientSecret,
+                UserTwoFactorMethod = _bitwardenCredentials
+                    .EmailPasswordCredential
+                    .UserTwoFactorMethod
+            };
 
             logger.LogDebug(
                 "Getting email address for email password credentials using Spectre.Console."
@@ -106,7 +140,11 @@ namespace Bitwarden_Backup.Services
                 emailPasswordCredential.Email,
                 Prompts.Email,
                 SpectreConsoleExtension.EmailStringValidator,
-                ErrorMessages.EmailValidationResult,
+                new ValidatorParams
+                {
+                    ValidationResultErrorMessage = ErrorMessages.EmailValidationResult,
+                    MinLength = 12
+                },
                 false,
                 null,
                 cancellationToken
@@ -120,7 +158,11 @@ namespace Bitwarden_Backup.Services
                     emailPasswordCredential.MasterPassword,
                     Prompts.MasterPassword,
                     SpectreConsoleExtension.StringLengthValidator,
-                    ErrorMessages.MasterPasswordValidationResult,
+                    new ValidatorParams
+                    {
+                        ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
+                        MinLength = 12
+                    },
                     true,
                     null,
                     cancellationToken
@@ -174,16 +216,22 @@ namespace Bitwarden_Backup.Services
                         emailPasswordCredential.TwoFactorCode,
                         Prompts.TwoFactorCode,
                         SpectreConsoleExtension.DefaultStringValidator,
-                        ErrorMessages.TwoFactorCodeValidationResult,
+                        new ValidatorParams
+                        {
+                            ValidationResultErrorMessage =
+                                ErrorMessages.TwoFactorCodeValidationResult
+                        },
                         false,
                         null,
                         cancellationToken
                     );
             }
+
+            return emailPasswordCredential;
         }
     }
 
-    internal interface ICredentialService
+    public interface ICredentialService
     {
         public Task<BitwardenCredentials> GetBitwardenCredential(
             BitwardenConfiguration bitwardenConfiguration,

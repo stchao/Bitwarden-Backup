@@ -2,7 +2,7 @@
 
 namespace Bitwarden_Backup.Models
 {
-    internal class BitwardenResponse
+    public class BitwardenResponse
     {
         [JsonPropertyName("success")]
         public bool Success { get; set; }
@@ -14,7 +14,7 @@ namespace Bitwarden_Backup.Models
         public string Message { get; set; } = string.Empty;
     }
 
-    internal class Data
+    public class Data
     {
         [JsonPropertyName("noColor")]
         public bool NoColor { get; set; }

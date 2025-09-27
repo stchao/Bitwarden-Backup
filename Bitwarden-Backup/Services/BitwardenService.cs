@@ -9,16 +9,16 @@ using Spectre.Console;
 
 namespace Bitwarden_Backup.Services
 {
-    internal class BitwardenService(ILogger<BitwardenService> logger, IConfiguration configuration)
+    public class BitwardenService(ILogger<BitwardenService> logger, IConfiguration configuration)
         : IBitwardenService
     {
-        private string sessionKey = string.Empty;
-        private string bitwardenExecutableName = "bw";
+        private string _sessionKey = string.Empty;
+        private string _bitwardenExecutableName = "bw";
 
-        private readonly BitwardenConfiguration bitwardenConfiguration =
+        private readonly BitwardenConfiguration _bitwardenConfiguration =
             configuration.GetSection(BitwardenConfiguration.Key).Get<BitwardenConfiguration>()
             ?? new BitwardenConfiguration();
-        private readonly ExportFileProperty exportFileProperty =
+        private readonly ExportFileProperty _exportFileProperty =
             configuration.GetSection(ExportFileProperty.Key).Get<ExportFileProperty>()
             ?? new ExportFileProperty();
 
@@ -31,13 +31,13 @@ namespace Bitwarden_Backup.Services
                 ?? new BitwardenCredentials();
 
             // Set log in method to avoid prompt if at least one required value is in appsettings
-            bitwardenConfiguration.SetLogInMethod(bitwardenCredentials);
+            _bitwardenConfiguration.SetLogInMethod(bitwardenCredentials);
 
-            if (bitwardenConfiguration.LogInMethod == LogInMethod.None)
+            if (_bitwardenConfiguration.LogInMethod == LogInMethod.None)
             {
                 logger.LogDebug("Getting log in method using Spectre.Console.");
 
-                bitwardenConfiguration.LogInMethod = await new SelectionPrompt<LogInMethod>()
+                _bitwardenConfiguration.LogInMethod = await new SelectionPrompt<LogInMethod>()
                     .Title(Prompts.LoginMethod)
                     .PageSize(5)
                     .MoreChoicesText(Texts.MoreChoices)
@@ -58,18 +58,18 @@ namespace Bitwarden_Backup.Services
                     .ShowAsync(AnsiConsole.Console, cancellationToken);
             }
 
-            return bitwardenConfiguration;
+            return _bitwardenConfiguration;
         }
 
         public async Task<BitwardenResponse> SetBitwardenServer(CancellationToken cancellationToken)
         {
-            if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
+            if (!string.IsNullOrEmpty(_bitwardenConfiguration.Url))
             {
                 logger.LogDebug("Saving Bitwarden Server config.");
             }
 
             return await RunBitwardenCommand(
-                $"config server {bitwardenConfiguration.Url} --response",
+                $"config server {_bitwardenConfiguration.Url} --response",
                 string.Empty,
                 null,
                 cancellationToken
@@ -93,8 +93,12 @@ namespace Bitwarden_Backup.Services
                 {
                     Prompt = Prompts.MasterPassword,
                     Validator = SpectreConsoleExtension.StringLengthValidator,
-                    ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
-                    Value = credential.MasterPassword,
+                    ValidatorParams = new ValidatorParams
+                    {
+                        ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
+                        Arg = credential.MasterPassword,
+                        MinLength = 12
+                    },
                     IsSecret = true,
                     InputMask = null
                 }
@@ -115,8 +119,12 @@ namespace Bitwarden_Backup.Services
                     new()
                     {
                         Prompt = Prompts.TwoFactorCode,
-                        ValidationResultErrorMessage = ErrorMessages.TwoFactorCodeValidationResult,
-                        Value = credential.TwoFactorCode
+                        ValidatorParams = new ValidatorParams
+                        {
+                            ValidationResultErrorMessage =
+                                ErrorMessages.TwoFactorCodeValidationResult,
+                            Arg = credential.TwoFactorCode,
+                        }
                     }
                 );
             }
@@ -134,7 +142,7 @@ namespace Bitwarden_Backup.Services
             if (bitwardenLogInResponse.Success && bitwardenLogInResponse.Data is not null)
             {
                 logger.LogDebug("Setting session key.");
-                sessionKey = bitwardenLogInResponse.Data.Raw;
+                _sessionKey = bitwardenLogInResponse.Data.Raw;
             }
 
             return bitwardenLogInResponse;
@@ -151,11 +159,11 @@ namespace Bitwarden_Backup.Services
             Environment.SetEnvironmentVariable("BW_CLIENTID", credential.ClientId);
             Environment.SetEnvironmentVariable("BW_CLIENTSECRET", credential.ClientSecret);
 
-            if (!string.IsNullOrEmpty(bitwardenConfiguration.Url))
+            if (!string.IsNullOrEmpty(_bitwardenConfiguration.Url))
             {
                 logger.LogDebug("Saving Bitwarden Server config.");
                 var bitwardenConfigResponse = await RunBitwardenCommand(
-                    $"config server {bitwardenConfiguration.Url} --response",
+                    $"config server {_bitwardenConfiguration.Url} --response",
                     string.Empty,
                     null,
                     cancellationToken
@@ -166,7 +174,7 @@ namespace Bitwarden_Backup.Services
                     return bitwardenConfigResponse;
                 }
 
-                logger.LogInformation("Set config server to {url}", bitwardenConfiguration.Url);
+                logger.LogInformation("Set config server to {url}", _bitwardenConfiguration.Url);
                 logger.LogDebug("Bitwarden config response: \n{response}", bitwardenConfigResponse);
             }
 
@@ -192,8 +200,13 @@ namespace Bitwarden_Backup.Services
                     {
                         Prompt = Prompts.MasterPassword,
                         Validator = SpectreConsoleExtension.StringLengthValidator,
-                        ValidationResultErrorMessage = ErrorMessages.MasterPasswordValidationResult,
-                        Value = credential.MasterPassword,
+                        ValidatorParams = new ValidatorParams
+                        {
+                            ValidationResultErrorMessage =
+                                ErrorMessages.MasterPasswordValidationResult,
+                            Arg = credential.MasterPassword.ToString(),
+                            MinLength = 12
+                        },
                         IsSecret = true,
                         InputMask = null
                     }
@@ -215,7 +228,7 @@ namespace Bitwarden_Backup.Services
             if (bitwardenUnlockResponse.Data is not null)
             {
                 logger.LogDebug("Setting session key.");
-                sessionKey = bitwardenUnlockResponse.Data.Raw;
+                _sessionKey = bitwardenUnlockResponse.Data.Raw;
             }
 
             return bitwardenUnlockResponse;
@@ -227,7 +240,7 @@ namespace Bitwarden_Backup.Services
 
         public async Task<BitwardenResponse> ExportVault(CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(sessionKey))
+            if (string.IsNullOrWhiteSpace(_sessionKey))
             {
                 return new BitwardenResponse()
                 {
@@ -237,23 +250,23 @@ namespace Bitwarden_Backup.Services
             }
 
             var filePath = FilePathExtension.GetFilePath(
-                exportFileProperty.Path,
-                exportFileProperty.ExportFormat,
+                _exportFileProperty.Path,
+                _exportFileProperty.ExportFormat,
                 "bw_export",
-                exportFileProperty.DateInFileNameFormat
+                _exportFileProperty.DateInFileNameFormat
             );
 
             var command =
-                $"export --session \"{sessionKey}\" --format {exportFileProperty.ExportFormat} --output {filePath} --response";
+                $"export --session \"{_sessionKey}\" --format {_exportFileProperty.ExportFormat} --output {filePath} --response";
 
             var additionalCommand = string.Empty;
 
             if (
-                !string.IsNullOrWhiteSpace(exportFileProperty.CustomExportPassword)
-                && exportFileProperty.ExportFormat.Equals(ExportFormat.encrypted_json)
+                !string.IsNullOrWhiteSpace(_exportFileProperty.CustomExportPassword)
+                && _exportFileProperty.ExportFormat.Equals(ExportFormat.encrypted_json)
             )
             {
-                additionalCommand = $" --password {exportFileProperty.CustomExportPassword}";
+                additionalCommand = $" --password {_exportFileProperty.CustomExportPassword}";
             }
 
             logger.LogDebug("Running export vault command.");
@@ -331,10 +344,10 @@ namespace Bitwarden_Backup.Services
                     currentInput.Prompt
                 );
                 var userInput = await SpectreConsoleExtension.GetStringInputWithConsole(
-                    currentInput.Value,
+                    currentInput.ValidatorParams.Arg,
                     currentInput.Prompt,
                     currentInput.Validator,
-                    currentInput.ValidationResultErrorMessage,
+                    currentInput.ValidatorParams,
                     currentInput.IsSecret,
                     currentInput.InputMask,
                     cancellationToken
@@ -369,8 +382,8 @@ namespace Bitwarden_Backup.Services
         private string GetBitwardenPath()
         {
             var filePath = Path.Combine(
-                bitwardenConfiguration.ExecutablePath,
-                bitwardenExecutableName
+                _bitwardenConfiguration.ExecutablePath,
+                _bitwardenExecutableName
             );
 
             if (File.Exists(filePath))
@@ -378,19 +391,22 @@ namespace Bitwarden_Backup.Services
                 return filePath;
             }
 
-            bitwardenExecutableName = "bw";
-            bitwardenConfiguration.ExecutablePath =
+            _bitwardenExecutableName = "bw";
+            _bitwardenConfiguration.ExecutablePath =
                 Path.GetDirectoryName(Environment.ProcessPath) ?? ".";
 
             if (Environment.OSVersion.Platform.ToString().StartsWith("Win"))
             {
-                bitwardenExecutableName = "bw.exe";
-                bitwardenConfiguration.ExecutablePath =
+                _bitwardenExecutableName = "bw.exe";
+                _bitwardenConfiguration.ExecutablePath =
                     Path.GetDirectoryName(Environment.ProcessPath)
                     ?? Directory.GetCurrentDirectory();
             }
 
-            filePath = Path.Combine(bitwardenConfiguration.ExecutablePath, bitwardenExecutableName);
+            filePath = Path.Combine(
+                _bitwardenConfiguration.ExecutablePath,
+                _bitwardenExecutableName
+            );
 
             if (!File.Exists(filePath))
             {
@@ -401,7 +417,7 @@ namespace Bitwarden_Backup.Services
         }
     }
 
-    internal interface IBitwardenService
+    public interface IBitwardenService
     {
         public Task<BitwardenConfiguration> GetBitwardenConfiguration(
             CancellationToken cancellationToken = default

@@ -5,9 +5,9 @@ using Serilog;
 
 namespace Bitwarden_Backup.Extensions
 {
-    internal static class ServiceCollectionExtension
+    public static class ServiceCollectionExtension
     {
-        internal static IServiceCollection ConfigureLogAndServices(this IServiceCollection services)
+        public static IServiceCollection ConfigureLogAndServices(this IServiceCollection services)
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())

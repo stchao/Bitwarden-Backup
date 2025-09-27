@@ -2,9 +2,9 @@
 
 namespace Bitwarden_Backup.Extensions
 {
-    internal static class FilePathExtension
+    public static class FilePathExtension
     {
-        internal static string GetFilePath(
+        public static string GetFilePath(
             string path,
             ExportFormat exportFormat,
             string defaultFileName = "filename",

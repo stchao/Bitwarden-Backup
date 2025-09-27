@@ -1,6 +1,6 @@
 ﻿namespace Bitwarden_Backup.Models
 {
-    internal class BitwardenConfiguration
+    public class BitwardenConfiguration
     {
         public static string Key = "BitwardenConfiguration";
 
